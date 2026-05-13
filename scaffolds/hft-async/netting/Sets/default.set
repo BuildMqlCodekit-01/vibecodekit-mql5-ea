@@ -1,0 +1,8 @@
+; {{NAME}} HFT async default set
+; Symbol: {{SYMBOL}}, TF: {{TF}}
+InpMagic=80050
+InpRiskMoney=50.0
+InpSlPips=10
+InpTpPips=15
+InpDailyLossPct=0.02
+InpMaxPositions=5

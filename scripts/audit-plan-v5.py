@@ -173,11 +173,11 @@ PHASE_FILES: dict[str, list[str]] = {
     ],
     "E": [
         "mcp/metaeditor-bridge/server.py",
-        "mcp/metaeditor-bridge/tools.py",
+        "mcp/metaeditor-bridge/metaeditor_tools.py",
         "mcp/mt5-bridge/server.py",
-        "mcp/mt5-bridge/tools.py",
+        "mcp/mt5-bridge/mt5_tools.py",
         "mcp/algo-forge-bridge/server.py",
-        "mcp/algo-forge-bridge/tools.py",
+        "mcp/algo-forge-bridge/forge_tools.py",
         "scripts/vibecodekit_mql5/canary.py",
         "scripts/vibecodekit_mql5/doctor.py",
         "scripts/vibecodekit_mql5/install.py",
@@ -281,12 +281,14 @@ def audit_pre_phase(phase: str) -> int:
         if missing:
             errors.append(f"Phase {prev} missing {len(missing)} files: {missing[:3]}...")
     
-    # 2. No phase X files yet
-    cur_missing, _ = check_phase_files_present(phase)
+    # 2. No phase X implementation yet. `tests/fixtures/` is exempt: fixtures
+    #    are test data inputs (often checked in earlier so smoke tests can
+    #    reference them), not implementation produced during the phase.
     expected = PHASE_FILES.get(phase, [])
-    if expected and len(cur_missing) != len(expected):
-        present = [f for f in expected if (REPO_ROOT / f).exists()]
-        errors.append(f"Phase {phase} files already partially present: {present[:5]}")
+    implementation = [f for f in expected if not f.startswith("tests/fixtures/")]
+    impl_present = [f for f in implementation if (REPO_ROOT / f).exists()]
+    if implementation and impl_present:
+        errors.append(f"Phase {phase} implementation already partially present: {impl_present[:5]}")
     
     # 3. No forbidden files
     forbidden = check_forbidden_files()

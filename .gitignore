@@ -34,3 +34,6 @@ Thumbs.db
 *.ex5
 *.log
 tests/.cache/
+
+# Worked-example canary log is a committed artefact, not a generated file.
+!examples/**/results/canary.log

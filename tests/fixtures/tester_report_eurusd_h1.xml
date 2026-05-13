@@ -26,5 +26,6 @@
         <LosingStreak>5</LosingStreak>
         <MFECorrelation>0.65</MFECorrelation>
         <MAECorrelation>0.55</MAECorrelation>
+        <BrokerDigits>5</BrokerDigits>
     </Statistics>
 </TesterReport>
