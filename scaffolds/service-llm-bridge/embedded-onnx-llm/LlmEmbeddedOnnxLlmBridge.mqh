@@ -54,15 +54,18 @@ public:
      {
       if(m_onnx == NULL || m_onnx.Handle() == INVALID_HANDLE)
          return _fallback(symbol);
-      float input[10]; float output[3];
+      // NB: 'input' and 'output' are reserved MQL5 keywords (used for
+      // declaring optimizer-visible input parameters). Use 'feat' /
+      // 'logits' as the local-buffer names instead.
+      float feat[10]; float logits[3];
       // toy feature: last 10 close-to-close returns
       for(int i = 0; i < 10; i++)
-         input[i] = (float)(iClose(symbol, _Period, i) -
-                            iClose(symbol, _Period, i + 1));
-      if(!m_onnx.Run(input, 10, output, 3)) return _fallback(symbol);
+         feat[i] = (float)(iClose(symbol, _Period, i) -
+                           iClose(symbol, _Period, i + 1));
+      if(!m_onnx.Run(feat, 10, logits, 3)) return _fallback(symbol);
       // argmax across 3 classes: 0=SELL, 1=FLAT, 2=BUY
       int best = 0;
-      for(int i = 1; i < 3; i++) if(output[i] > output[best]) best = i;
+      for(int i = 1; i < 3; i++) if(logits[i] > logits[best]) best = i;
       if(best == 0) return "SELL";
       if(best == 2) return "BUY";
       return "FLAT";

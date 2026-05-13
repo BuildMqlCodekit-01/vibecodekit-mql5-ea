@@ -25,8 +25,10 @@ input int    InpSlPips       = 30;
 input int    InpTpPips       = 60;
 input double InpDailyLossPct = 0.05;
 input int    InpMaxPositions = 3;
-input string InpModel        = "llama3.2";
-input int    InpLlmTimeoutMs = 5000;
+// sinput = static input: deployment knobs, not optimization targets.
+// Keeps AP-5 (≤6 optimizable inputs) satisfied.
+sinput string InpModel        = "llama3.2";
+sinput int    InpLlmTimeoutMs = 5000;
 
 CPipNormalizer              pip;
 CRiskGuard                  risk;

@@ -42,8 +42,23 @@ public:
 
    bool              InitFromFile(const string file_path)
      {
+      // Load the file into a byte buffer first, then feed it to
+      // OnnxCreateFromBuffer(const uchar &buffer[], ulong flags) — the
+      // MQL5 runtime signature is (buffer, flags), NOT (path, ..., ...).
       m_path = file_path;
-      m_handle = OnnxCreateFromBuffer(NULL, 0, 0);  // placeholder for unit-test path
+      uchar buf[];
+      const int fh = FileOpen(file_path, FILE_BIN|FILE_READ|FILE_COMMON);
+      if(fh == INVALID_HANDLE)
+        {
+         Print("[OnnxLoader] FileOpen failed for ", file_path,
+               " err=", GetLastError());
+         return false;
+        }
+      const ulong size = FileSize(fh);
+      ArrayResize(buf, (int)size);
+      FileReadArray(fh, buf, 0, (int)size);
+      FileClose(fh);
+      m_handle = OnnxCreateFromBuffer(buf, 0);
       if(m_handle == INVALID_HANDLE)
         {
          Print("[OnnxLoader] OnnxCreateFromBuffer failed for ", file_path,

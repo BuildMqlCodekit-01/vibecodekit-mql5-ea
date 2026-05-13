@@ -68,7 +68,9 @@ public:
                                     "\"messages\":[{\"role\":\"user\","
                                     "\"content\":\"Trend for %s now? Reply BUY|SELL|FLAT only.\"}]}",
                                     symbol);
-      char post[]; StringToCharArray(payload, post, 0, WHOLECHAR_NULL, CP_UTF8);
+      // StringToCharArray: count=-1 means convert until the source-string
+      // terminator (MQL5 has no whole-string sentinel for char counts).
+      char post[]; StringToCharArray(payload, post, 0, -1, CP_UTF8);
       char result[]; string headers_out;
       int code = WebRequest("POST", m_endpoint,
                             "Authorization: Bearer " + m_api_key + "\r\n"

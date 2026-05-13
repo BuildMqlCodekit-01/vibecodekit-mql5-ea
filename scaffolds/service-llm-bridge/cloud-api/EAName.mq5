@@ -25,7 +25,11 @@ input int    InpSlPips       = 30;
 input int    InpTpPips       = 60;
 input double InpDailyLossPct = 0.05;
 input int    InpMaxPositions = 3;
-input int    InpLlmTimeoutMs = 5000;
+// sinput = static input: configurable in EA properties but excluded
+// from the Strategy Tester optimizer. Keeps AP-5 (≤6 optimizable inputs)
+// satisfied since the HTTP timeout is a deployment knob, not a tuning
+// parameter for the strategy.
+sinput int   InpLlmTimeoutMs = 5000;
 
 CPipNormalizer       pip;
 CRiskGuard           risk;
