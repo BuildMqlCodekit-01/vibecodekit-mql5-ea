@@ -1,0 +1,36 @@
+# Python
+__pycache__/
+*.py[cod]
+*.egg-info/
+.pytest_cache/
+.coverage
+.venv/
+venv/
+
+# Wine prefix (Phase 0 setup)
+.wine-prefix/
+~/.wine/
+
+# MetaEditor / MT5 binaries (downloaded by setup script)
+mt5setup.exe
+metaeditor64.exe
+terminal64.exe
+
+# CI artifacts
+.ci-logs/
+build/
+dist/
+
+# OS
+.DS_Store
+Thumbs.db
+
+# IDE
+.idea/
+.vscode/
+*.swp
+
+# Generated
+*.ex5
+*.log
+tests/.cache/

@@ -1,0 +1,52 @@
+[build-system]
+requires = ["setuptools>=68", "wheel"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "vibecodekit-mql5-ea"
+version = "0.0.1"
+description = "Vibecode methodology kit for MQL5 Expert Advisor development"
+readme = "README.md"
+license = {text = "MIT"}
+requires-python = ">=3.10"
+authors = [{name = "vibecodekit-mql5-ea contributors"}]
+
+dependencies = [
+    # Phase 0: keep minimal; phases A-E add as needed
+]
+
+[project.optional-dependencies]
+dev = [
+    "pytest>=7.4",
+    "pytest-cov>=4.1",
+    "pyyaml>=6.0",
+    "ruff>=0.1",
+]
+phase-d = [
+    # Phase D adds ONNX/PyTorch/etc
+    "onnx>=1.14",
+    "torch>=2.0",
+    "MetaTrader5>=5.0.45",
+]
+
+[project.scripts]
+# Phase A scripts
+mql5-build = "vibecodekit_mql5.build:main"
+mql5-lint = "vibecodekit_mql5.lint:main"
+mql5-compile = "vibecodekit_mql5.compile:main"
+mql5-pip-normalize = "vibecodekit_mql5.pip_normalize:main"
+# Phase B scripts (added in Phase B)
+# mql5-backtest = "vibecodekit_mql5.backtest:main"
+# ... etc
+
+[tool.setuptools.packages.find]
+where = ["scripts"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+addopts = "-v --tb=short"
+
+[tool.ruff]
+line-length = 100
+target-version = "py310"
