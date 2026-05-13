@@ -61,11 +61,14 @@ def _probe_scaffolds(rep: AuditReport) -> None:
         "stdlib/netting", "stdlib/hedging", "stdlib/python-bridge",
         "wizard-composable/netting", "portfolio-basket/netting",
         "portfolio-basket/hedging", "ml-onnx/python-bridge",
-        "hft-async/netting", "trend/netting", "mean-reversion/netting",
+        "hft-async/netting", "trend/netting", "mean-reversion/hedging",
         "breakout/netting", "service-llm-bridge/cloud-api",
         "service-llm-bridge/self-hosted-ollama",
         "service-llm-bridge/embedded-onnx-llm",
-        "scalping/netting",
+        "scalping/hedging",
+        "news-trading/netting", "arbitrage-stat/python-bridge",
+        "hedging-multi/hedging", "grid/hedging", "dca/hedging",
+        "library/netting", "indicator-only/netting",
     ]
     for a in archetypes:
         p = REPO_ROOT / "scaffolds" / a / "EAName.mq5"
@@ -91,8 +94,14 @@ def _probe_methodology(rep: AuditReport) -> None:
         ok = any(REPO_ROOT.glob(str(p.relative_to(REPO_ROOT))))
         rep.probes.append(ProbeResult(f"step:{s}", ok))
     for layer in range(1, 8):
-        p = REPO_ROOT / "scripts" / "vibecodekit_mql5" / "permission" / f"layer{layer}.py"
-        rep.probes.append(ProbeResult(f"layer:{layer}", p.exists()))
+        # Layer modules use descriptive suffixes (layer1_source_lint.py etc.) —
+        # match by glob so the probe survives any future renames.
+        matches = list((REPO_ROOT / "scripts" / "vibecodekit_mql5" / "permission")
+                       .glob(f"layer{layer}_*.py"))
+        rep.probes.append(ProbeResult(
+            f"layer:{layer}", bool(matches),
+            str(matches[0]) if matches else "",
+        ))
 
 
 def _probe_governance(rep: AuditReport) -> None:
