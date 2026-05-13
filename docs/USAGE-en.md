@@ -149,25 +149,55 @@ LLM patterns: `cloud-api` | `self-hosted-ollama` | `embedded-onnx-llm`.
 ### 3.4. Verify (10)
 
 ```bash
+# Code-quality (run anytime; no XML needed)
 python -m vibecodekit_mql5.compile             MyEA.mq5
 python -m vibecodekit_mql5.lint                MyEA.mq5
 python -m vibecodekit_mql5.method_hiding_check MyEA.mq5 --build 5260
-python -m vibecodekit_mql5.backtest    --ea MyEA.ex5 --symbol EURUSD --period H1 \
-    --from 2023.01.01 --to 2024.12.31
-python -m vibecodekit_mql5.walkforward --ea MyEA.ex5 --windows 12
-python -m vibecodekit_mql5.monte_carlo --report tester.xml --sims 1000
-python -m vibecodekit_mql5.overfit_check --is is.xml --oos oos.xml
-python -m vibecodekit_mql5.multibroker --ea MyEA.ex5 --brokers brokers.json
-python -m vibecodekit_mql5.fitness     --template sharpe_recovery > OnTester.mq5
-python -m vibecodekit_mql5.mfe_mae     --log mfe.csv --report mfe-report.html
+
+# Parse Strategy Tester XML report (run backtest manually first, then parse)
+python -m vibecodekit_mql5.backtest MyEA.ex5 inputs.set \
+    --period H1 --symbol EURUSD --report tester.xml > metrics.json
+
+# Walk-forward / overfit / monte-carlo take POSITIONAL XML/CSV inputs
+python -m vibecodekit_mql5.walkforward   is.xml oos.xml      > walkforward.json
+python -m vibecodekit_mql5.overfit_check is.xml oos.xml      > overfit.json
+python -m vibecodekit_mql5.monte_carlo   returns.csv --reported-dd 5.4 \
+                                         --n-sims 1000 --seed 42 > montecarlo.json
+
+# Multi-broker: comma-separated XML report paths
+python -m vibecodekit_mql5.multibroker --reports a.xml,b.xml,c.xml
+
+# Custom fitness template (positional; omit to list 5 templates)
+python -m vibecodekit_mql5.fitness sharpe > OnTester.mq5
+
+# MFE/MAE: CSV must have columns deal_id,open_time,close_time,magic,
+# type,profit,mfe,mae (exact, as emitted by CMfeMaeLogger.SaveToCsv())
+python -m vibecodekit_mql5.mfe_mae mfe.csv
 ```
+
+> **Note:** `backtest`, `walkforward`, `overfit_check`, `multibroker` only
+> **parse** XML reports — they do NOT drive the Strategy Tester. Run the
+> backtest yourself via MetaTrader 5 (or automate it with
+> `terminal64.exe /config:tester.ini`), capture the XML, then feed it in.
+> `cloud_optimize` only emits the `tester.ini` you upload to MetaQuotes
+> Cloud Network.
 
 ### 3.5. RRI methodology (3)
 
 ```bash
-python -m vibecodekit_mql5.rri.rri_bt    --report tester.xml --mode enterprise
-python -m vibecodekit_mql5.rri.rri_rr    --report tester.xml
-python -m vibecodekit_mql5.rri.rri_chart --symbol EURUSD --tf H1
+# BT review — 5 personas × 7 dims × 8 axes (needs metrics JSON from backtest)
+python -m vibecodekit_mql5.rri.rri_bt \
+    --metrics metrics.json --mode enterprise --output rri-bt.html
+
+# R&R review — needs 4 JSON inputs
+python -m vibecodekit_mql5.rri.rri_rr \
+    --trader-check trader-check.json --walkforward walkforward.json \
+    --monte-carlo  montecarlo.json   --overfit     overfit.json \
+    --mode enterprise --output rri-rr.html
+
+# Indicator-only review
+python -m vibecodekit_mql5.rri.rri_chart \
+    --metrics metrics.json --mode personal --output rri-chart.html
 ```
 
 ### 3.6. Review openers (5)
@@ -183,9 +213,10 @@ python -m vibecodekit_mql5.review.investigate
 ### 3.7. Deploy (3)
 
 ```bash
-python -m vibecodekit_mql5.deploy_vps      --ea MyEA.ex5 --vps-host myvps.example.com
-python -m vibecodekit_mql5.cloud_optimize  --ea MyEA --budget-usd 50 --mode enterprise
-python -m vibecodekit_mql5.canary          MyEA.ex5 --duration 30m
+python -m vibecodekit_mql5.deploy_vps      MyEA --out MIGRATE-VPS.md --mode personal
+python -m vibecodekit_mql5.cloud_optimize  MyEA --symbol EURUSD --period H1 \
+                                           --passes 1000 --budget-usd 50 --mode enterprise
+python -m vibecodekit_mql5.canary          MyEA.ex5 --duration 30m  # or --journal mt5.log
 ```
 
 ### 3.8. Ship (3)
@@ -253,15 +284,26 @@ python -m vibecodekit_mql5.wizard \
 
 ### Step 7 — VERIFY (multi-stage, ~60 min)
 ```bash
-python -m vibecodekit_mql5.compile         EAMacdSarPortfolio.mq5
-python -m vibecodekit_mql5.lint            EAMacdSarPortfolio.mq5
+# Code-quality first (no XML required)
+python -m vibecodekit_mql5.compile             EAMacdSarPortfolio.mq5
+python -m vibecodekit_mql5.lint                EAMacdSarPortfolio.mq5
 python -m vibecodekit_mql5.method_hiding_check EAMacdSarPortfolio.mq5
-python -m vibecodekit_mql5.backtest        --ea EAMacdSarPortfolio.ex5 ...
-python -m vibecodekit_mql5.walkforward     --ea EAMacdSarPortfolio.ex5 --windows 12
-python -m vibecodekit_mql5.monte_carlo     --report tester.xml --sims 1000
-python -m vibecodekit_mql5.overfit_check   --is is.xml --oos oos.xml
-python -m vibecodekit_mql5.multibroker     --ea EAMacdSarPortfolio.ex5 --brokers 5
-python -m vibecodekit_mql5.rri.rri_bt      --report tester.xml --mode enterprise
+
+# Run Strategy Tester manually via MT5 GUI, capture XML reports, then:
+python -m vibecodekit_mql5.backtest      EAMacdSarPortfolio.ex5 default.set \
+    --period H1 --symbol EURUSD --report tester.xml > metrics.json
+python -m vibecodekit_mql5.walkforward   is.xml oos.xml      > walkforward.json
+python -m vibecodekit_mql5.monte_carlo   returns.csv --reported-dd 5.4 \
+                                         --n-sims 1000        > montecarlo.json
+python -m vibecodekit_mql5.overfit_check is.xml oos.xml      > overfit.json
+python -m vibecodekit_mql5.multibroker   --reports a.xml,b.xml,c.xml
+python -m vibecodekit_mql5.trader_check  EAMacdSarPortfolio.mq5 > trader-check.json
+
+python -m vibecodekit_mql5.rri.rri_bt    --metrics metrics.json \
+                                         --mode enterprise --output rri-bt.html
+python -m vibecodekit_mql5.rri.rri_rr    --trader-check trader-check.json \
+    --walkforward walkforward.json --monte-carlo montecarlo.json \
+    --overfit overfit.json --mode enterprise --output rri-rr.html
 ```
 
 ### Step 8 — REFINE + SHIP (~10 min)

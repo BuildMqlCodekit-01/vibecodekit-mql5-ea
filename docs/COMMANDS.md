@@ -35,13 +35,13 @@ No master `/mql5` router — every command stands alone.
 - `/mql5-compile`             — MetaEditor build (Wine on Linux)
 - `/mql5-lint`                — 8 critical anti-pattern detectors
 - `/mql5-method-hiding-check` — build-aware AP-21 detector
-- `/mql5-backtest`            — drive Strategy Tester
-- `/mql5-walkforward`         — IS/OOS Sharpe correlation
-- `/mql5-monte-carlo`         — 1000-sim bootstrap DD
-- `/mql5-overfit-check`       — OOS/IS ratio across 4 metrics
-- `/mql5-multibroker`         — N-broker stability orchestrator
-- `/mql5-fitness`             — OnTester custom fitness emitter (5 templates)
-- `/mql5-mfe-mae`             — per-trade MFE/MAE log analyser
+- `/mql5-backtest`            — parse Strategy Tester XML → 14 metrics JSON (you run the tester)
+- `/mql5-walkforward`         — IS/OOS Sharpe correlation (takes 2 positional XML reports)
+- `/mql5-monte-carlo`         — bootstrap DD from returns CSV (positional `returns_csv --reported-dd ...`)
+- `/mql5-overfit-check`       — OOS/IS Sharpe sanity (takes 2 positional XML reports)
+- `/mql5-multibroker`         — N-broker stability orchestrator (`--reports a.xml,b.xml,c.xml`)
+- `/mql5-fitness`             — OnTester custom fitness template (positional name; omit to list)
+- `/mql5-mfe-mae`             — per-trade MFE/MAE CSV analyser (8-col schema; see USAGE)
 
 ## RRI methodology (3)
 - `/mql5-rri-bt`     — Backtest review (5 personas × 7 dim × 8 axis)

@@ -184,40 +184,64 @@ python -m vibecodekit_mql5.lint MyEA.mq5
 # 3. Method-hiding linter (build ≥ 5260 → ERROR; build < 5260 → WARN)
 python -m vibecodekit_mql5.method_hiding_check MyEA.mq5 --build 5260
 
-# 4. Drive Strategy Tester (sinh tester.ini + parse XML report)
-python -m vibecodekit_mql5.backtest --ea MyEA.ex5 --symbol EURUSD \
-    --period H1 --from 2023.01.01 --to 2024.12.31
+# 4. Parse Strategy Tester XML report → 14 canonical metrics JSON
+#    Chạy MetaEditor backtest tay trước, lưu XML, rồi parse:
+python -m vibecodekit_mql5.backtest MyEA.ex5 inputs.set \
+    --period H1 --symbol EURUSD --report tester.xml > metrics.json
 
-# 5. Walk-forward IS/OOS với correlation Sharpe
-python -m vibecodekit_mql5.walkforward --ea MyEA.ex5 --windows 12
+# 5. Walk-forward IS/OOS (cần 2 XML report đã chạy IS và OOS riêng)
+python -m vibecodekit_mql5.walkforward is.xml oos.xml > walkforward.json
 
-# 6. Monte-Carlo 1000-sim bootstrap drawdown
-python -m vibecodekit_mql5.monte_carlo --report tester.xml --sims 1000
+# 6. Monte-Carlo bootstrap DD (CSV 1 return / dòng, có header tuỳ chọn)
+python -m vibecodekit_mql5.monte_carlo returns.csv \
+    --reported-dd 5.4 --n-sims 1000 --seed 42 > montecarlo.json
 
-# 7. Overfit check (OOS/IS ratio trên 4 metric)
-python -m vibecodekit_mql5.overfit_check --is is.xml --oos oos.xml
+# 7. Overfit check (Sharpe OOS/IS sanity)
+python -m vibecodekit_mql5.overfit_check is.xml oos.xml > overfit.json
 
-# 8. Multi-broker orchestrator (N broker stability)
-python -m vibecodekit_mql5.multibroker --ea MyEA.ex5 --brokers brokers.json
+# 8. Multi-broker stability (3 XML report tách dấu phẩy)
+python -m vibecodekit_mql5.multibroker \
+    --reports brokerA.xml,brokerB.xml,brokerC.xml
 
-# 9. Custom fitness emitter (5 template OnTester)
-python -m vibecodekit_mql5.fitness --template sharpe_recovery > OnTester.mq5
+# 9. Custom fitness emitter (positional; bỏ trống để list 5 template)
+python -m vibecodekit_mql5.fitness sharpe > OnTester.mq5
 
-# 10. MFE/MAE per-trade analyser
-python -m vibecodekit_mql5.mfe_mae --log mfe.csv --report mfe-report.html
+# 10. MFE/MAE per-trade analyser (CSV 8 cột: deal_id,open_time,
+#     close_time,magic,type,profit,mfe,mae — emit từ CMfeMaeLogger.mqh)
+python -m vibecodekit_mql5.mfe_mae mfe.csv
 ```
+
+> **Lưu ý:** `mql5-backtest`, `mql5-walkforward`, `mql5-overfit_check`,
+> `mql5-multibroker` chỉ **parse** XML report — KHÔNG tự chạy Strategy
+> Tester. Bạn vẫn phải chạy backtest qua MetaTrader 5 (hoặc tự automate
+> bằng `terminal64.exe /config:tester.ini`), lưu HTML/XML report, rồi
+> feed vào các lệnh này. Lệnh `cloud_optimize` chỉ sinh `tester.ini` cho
+> bạn copy lên Cloud Network của MetaQuotes.
+
+> **CSV schema cho `mfe_mae`** — cột bắt buộc đúng thứ tự:
+> `deal_id,open_time,close_time,magic,type,profit,mfe,mae` (xuất từ
+> `CMfeMaeLogger.SaveToCsv()`; xem `Include/CMfeMaeLogger.mqh`).
 
 ### 3.5. RRI methodology (3 lệnh review chuyên dụng)
 
 ```bash
-# Backtest review — 5 persona × 7 dim × 8 axis
-python -m vibecodekit_mql5.rri.rri_bt --report tester.xml --mode enterprise
+# Backtest review — 5 persona × 7 dim × 8 axis (yêu cầu JSON metrics
+# từ `mql5-backtest`)
+python -m vibecodekit_mql5.rri.rri_bt \
+    --metrics metrics.json --mode enterprise --output rri-bt.html
 
-# Risk & Robustness review
-python -m vibecodekit_mql5.rri.rri_rr --report tester.xml
+# Risk & Robustness review (cần 4 JSON: trader-check, walkforward,
+# monte-carlo, overfit)
+python -m vibecodekit_mql5.rri.rri_rr \
+    --trader-check trader-check.json \
+    --walkforward  walkforward.json \
+    --monte-carlo  montecarlo.json \
+    --overfit      overfit.json \
+    --mode personal --output rri-rr.html
 
-# Indicator-dev RRI (optional, chỉ áp dụng cho strategy indicator-only)
-python -m vibecodekit_mql5.rri.rri_chart --symbol EURUSD --tf H1
+# Indicator-dev RRI (chỉ áp dụng cho strategy indicator-only)
+python -m vibecodekit_mql5.rri.rri_chart \
+    --metrics metrics.json --mode personal --output rri-chart.html
 ```
 
 ### 3.6. Review opener (5 lệnh)
@@ -236,15 +260,18 @@ python -m vibecodekit_mql5.review.investigate  # incident investigation
 
 ```bash
 # Sinh checklist MIGRATE-VPS.md cho VPS deployment
-python -m vibecodekit_mql5.deploy_vps --ea MyEA.ex5 --vps-host myvps.example.com
+python -m vibecodekit_mql5.deploy_vps MyEA --out MIGRATE-VPS.md --mode personal
 
-# Sinh tester.ini cho Cloud Network optimization
-# Mode PERSONAL bị reject (quá đắt); ENTERPRISE phải có budget cap
-python -m vibecodekit_mql5.cloud_optimize --ea MyEA --budget-usd 50 --mode enterprise
+# Sinh tester.ini cho MetaQuotes Cloud Network optimization
+# Mode PERSONAL bị reject (quá đắt); team/enterprise phải có budget cap
+python -m vibecodekit_mql5.cloud_optimize MyEA \
+    --symbol EURUSD --period H1 --passes 1000 --budget-usd 50 \
+    --mode enterprise --output-ini tester.ini
 
 # Canary live monitor 30 phút sau deploy
 # Đọc journal MT5 qua mt5-bridge MCP; alert nếu error_rate > 1/min,
 # slippage_p95 > 1 pip, hoặc DD > 5%
+# (Có thể dùng --journal <file.log> thay vì poll real-time.)
 python -m vibecodekit_mql5.canary MyEA.ex5 --duration 30m
 ```
 
@@ -325,15 +352,27 @@ python -m vibecodekit_mql5.wizard \
 
 ### Bước 7 — VERIFY (multi-stage, ~60 phút)
 ```bash
-python -m vibecodekit_mql5.compile         EAMacdSarPortfolio.mq5
-python -m vibecodekit_mql5.lint            EAMacdSarPortfolio.mq5
+# Code-quality (chạy ngay, không cần XML report)
+python -m vibecodekit_mql5.compile             EAMacdSarPortfolio.mq5
+python -m vibecodekit_mql5.lint                EAMacdSarPortfolio.mq5
 python -m vibecodekit_mql5.method_hiding_check EAMacdSarPortfolio.mq5
-python -m vibecodekit_mql5.backtest        --ea EAMacdSarPortfolio.ex5 ...
-python -m vibecodekit_mql5.walkforward     --ea EAMacdSarPortfolio.ex5 --windows 12
-python -m vibecodekit_mql5.monte_carlo     --report tester.xml --sims 1000
-python -m vibecodekit_mql5.overfit_check   --is is.xml --oos oos.xml
-python -m vibecodekit_mql5.multibroker     --ea EAMacdSarPortfolio.ex5 --brokers 5
-python -m vibecodekit_mql5.rri.rri_bt      --report tester.xml --mode enterprise
+
+# Chạy Strategy Tester (manual / qua MT5 GUI), thu XML report sau đó:
+python -m vibecodekit_mql5.backtest      EAMacdSarPortfolio.ex5 default.set \
+    --period H1 --symbol EURUSD --report tester.xml > metrics.json
+python -m vibecodekit_mql5.walkforward   is.xml oos.xml      > walkforward.json
+python -m vibecodekit_mql5.monte_carlo   returns.csv --reported-dd 5.4 \
+                                         --n-sims 1000        > montecarlo.json
+python -m vibecodekit_mql5.overfit_check is.xml oos.xml      > overfit.json
+python -m vibecodekit_mql5.multibroker   --reports a.xml,b.xml,c.xml
+python -m vibecodekit_mql5.trader_check  EAMacdSarPortfolio.mq5 > trader-check.json
+
+# Quality matrix + RRI review
+python -m vibecodekit_mql5.rri.rri_bt    --metrics metrics.json \
+                                         --mode enterprise --output rri-bt.html
+python -m vibecodekit_mql5.rri.rri_rr    --trader-check trader-check.json \
+    --walkforward walkforward.json --monte-carlo montecarlo.json \
+    --overfit overfit.json --mode enterprise --output rri-rr.html
 ```
 
 ### Bước 8 — REFINE + SHIP (~10 phút)

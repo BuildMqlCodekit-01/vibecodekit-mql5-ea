@@ -60,3 +60,16 @@ def test_detector_ap21_jpy_xau_broken():
     ap21 = [f for f in findings if f.code == "AP-21"]
     assert ap21
     assert ap21[0].severity == "WARN"
+
+
+def test_detector_ap21_accepts_boxed_comment_in_scaffold():
+    """Wizard scaffolds emit `//| digits-tested: 5, 3 |` inside the
+    MetaEditor box-comment header. AP-21 must accept that as a valid
+    multi-class declaration, not flag it as missing/single-class."""
+    from vibecodekit_mql5.lint import lint_source
+    from pathlib import Path
+    repo_root = Path(__file__).resolve().parents[3]
+    scaffold = repo_root / "scaffolds" / "wizard-composable" / "netting" / "EAName.mq5"
+    findings = lint_source(str(scaffold), scaffold.read_text())
+    ap21 = [f for f in findings if f.code == "AP-21"]
+    assert ap21 == [], f"AP-21 false-positive on scaffold box comment: {ap21}"

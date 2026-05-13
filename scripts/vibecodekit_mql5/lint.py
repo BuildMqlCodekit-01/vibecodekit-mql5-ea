@@ -155,7 +155,12 @@ def detect_ap20(path: str, raw: str, src: str) -> list[Finding]:
 
 
 # AP-21 JPY-XAU-digits-broken: `// digits-tested: 5` (only one class).
-_DIGITS_TESTED = re.compile(r"//\s*digits-tested\s*:\s*([0-9,\s]+)", re.IGNORECASE)
+# Accept either `// digits-tested: 5, 3` or `//| digits-tested: 5, 3 |` (the
+# MetaEditor box-comment style emitted by every wizard scaffold).
+_DIGITS_TESTED = re.compile(
+    r"//\s*\|?\s*digits-tested\s*:\s*([0-9,\s]+)",
+    re.IGNORECASE,
+)
 
 def detect_ap21(path: str, raw: str, src: str) -> list[Finding]:
     # Search the RAW source — the meta tag lives in a comment.
