@@ -184,3 +184,48 @@ def test_embedded_onnx_bridge_does_not_use_reserved_keywords() -> None:
         f"reserved MQL5 keyword used as variable name in scaffold: "
         f"{m.group(0) if m else '?'}"
     )
+
+
+@pytest.mark.parametrize(
+    "bridge",
+    [
+        "scaffolds/service-llm-bridge/cloud-api/LlmCloudApiBridge.mqh",
+        "scaffolds/service-llm-bridge/self-hosted-ollama/LlmSelfHostedOllamaBridge.mqh",
+    ],
+)
+def test_webrequest_payload_uses_StringLen_not_minus_one(bridge: str) -> None:
+    """Per MQL5 docs, StringToCharArray with count=-1 copies the trailing
+    null terminator into the output array. When that array is passed to
+    WebRequest, the request body ends with a stray \\0 byte and strict
+    JSON parsers (Python json.loads(), Go json.Unmarshal()) reject the
+    payload with a "trailing data" / "invalid character after top-level
+    value" error. Regression: the LLM bridge scaffolds must use
+    StringLen(payload) as the explicit count so the request body is
+    exactly the JSON bytes, with no trailing null.
+    """
+    body = (REPO / bridge).read_text(encoding="utf-8")
+    # Find every StringToCharArray(...) call. Each call must have its
+    # count argument set to StringLen(...). -1 / WHOLE_ARRAY / similar
+    # whole-string sentinels are banned because they all copy the
+    # terminator.
+    pat = re.compile(r"StringToCharArray\s*\(([^)]*)\)")
+    matches = list(pat.finditer(body))
+    assert matches, f"expected at least one StringToCharArray call in {bridge}"
+    for m in matches:
+        call = m.group(0)
+        args = [a.strip() for a in m.group(1).split(",")]
+        # Signature: (text, array, start=0, count=-1, codepage=CP_ACP).
+        assert len(args) >= 4, (
+            f"StringToCharArray in {bridge} must pass an explicit count "
+            f"arg; got: {call}"
+        )
+        count_arg = args[3]
+        assert count_arg != "-1", (
+            f"{bridge}: StringToCharArray must NOT use count=-1 for "
+            f"a WebRequest body (the trailing \\0 breaks strict JSON "
+            f"parsers); use StringLen(payload) instead. Found: {call}"
+        )
+        assert "StringLen(" in count_arg, (
+            f"{bridge}: StringToCharArray count must be StringLen(...) "
+            f"to exclude the trailing null terminator; got: {count_arg!r}"
+        )
