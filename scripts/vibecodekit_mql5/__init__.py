@@ -10,4 +10,4 @@ router, NO query_loop, NO intent_router. Users invoke commands directly:
     mql5-pip-normalize <ea.mq5>
 """
 
-__version__ = "1.0.0"
+__version__ = "1.0.1"
