@@ -1,0 +1,500 @@
+---
+id: usage-vi
+title: Hướng dẫn sử dụng vibecodekit-mql5-ea v1.0.0 (Tiếng Việt)
+applicable_phase: E
+audience: end_user, dev_team
+---
+
+# Hướng dẫn sử dụng `vibecodekit-mql5-ea` v1.0.0
+
+Tài liệu này hướng dẫn từng bước cách dùng toàn bộ 43 lệnh để build một
+Expert Advisor MQL5 hoàn chỉnh, từ ý tưởng đến ship live. Phù hợp cho cả
+người mới và dev team.
+
+> 📚 Phiên bản tiếng Anh: [USAGE-en.md](USAGE-en.md)
+> 🛠️ Tích hợp IDE / CLI (Devin, Codex, Claude Code, Cursor, …): [ENV-SETUP-vi.md](ENV-SETUP-vi.md)
+
+## Mục lục
+
+1. [Cài đặt môi trường](#1-cài-đặt-môi-trường)
+2. [Triết lý: 8 bước build EA](#2-triết-lý-8-bước-build-ea)
+3. [Lệnh theo từng giai đoạn](#3-lệnh-theo-từng-giai-đoạn)
+4. [Ví dụ hoàn chỉnh: MACD+SAR EURUSD H1](#4-ví-dụ-hoàn-chỉnh-macdsar-eurusd-h1)
+5. [Tích hợp 3 MCP server](#5-tích-hợp-3-mcp-server)
+6. [22 anti-pattern detector](#6-22-anti-pattern-detector)
+7. [Troubleshooting](#7-troubleshooting)
+
+---
+
+## 1. Cài đặt môi trường
+
+### 1.1. Yêu cầu
+
+| Thành phần | Phiên bản |
+|-----------|-----------|
+| Python | ≥ 3.10 |
+| Wine | 8.0.2 (Linux/macOS) — MetaEditor là native trên Windows |
+| MetaEditor | build ≥ 5260 (để method-hiding linter ở mức ERROR thay vì WARN) |
+| ONNX runtime | 1.14 (Phase D ONNX e2e) |
+| Xvfb | tuỳ — cần nếu chạy headless trên CI Linux |
+
+### 1.2. Linux (Ubuntu 22.04+)
+
+```bash
+git clone https://github.com/BuildMqlCodekit-01/vibecodekit-mql5-ea
+cd vibecodekit-mql5-ea
+
+# Cài Wine + MetaEditor headless qua wineboot (~3 phút)
+./scripts/setup-wine-metaeditor.sh
+
+# Tạo venv riêng cho kit
+python -m venv .venv
+source .venv/bin/activate
+pip install -e .
+
+# Health check — mọi probe phải là ok: true
+python -m vibecodekit_mql5.doctor
+```
+
+### 1.3. macOS
+
+Wine trên macOS chạy được nhưng MetaQuotes không support chính thức.
+Khuyến nghị dùng Devin VM hoặc Linux VM. Nếu vẫn muốn local:
+
+```bash
+brew install --cask wine-stable
+# Sau đó các bước giống Linux
+```
+
+### 1.4. Windows
+
+MetaEditor là native nên không cần Wine. Dùng PowerShell:
+
+```powershell
+git clone https://github.com/BuildMqlCodekit-01/vibecodekit-mql5-ea
+cd vibecodekit-mql5-ea
+python -m venv .venv
+.venv\Scripts\Activate.ps1
+pip install -e .
+python -m vibecodekit_mql5.doctor
+```
+
+> ⚠️ Một số script `setup-wine-metaeditor.sh` là bash-only — trên Windows
+> chỉ cần chỉ định path MetaEditor qua env var `METAEDITOR_BIN` rồi bỏ
+> qua bước Wine.
+
+---
+
+## 2. Triết lý: 8 bước build EA
+
+Plan v5 chia toàn bộ vòng đời EA thành 8 bước. Mỗi bước có template
+markdown trong `docs/rri-templates/` và lệnh chuyên dụng để mở nó:
+
+| Bước | Tên | Lệnh mở template | Output |
+|------|-----|------------------|--------|
+| 1 | **SCAN** | `python -m vibecodekit_mql5.scan <thư mục>` | Liệt kê tree project |
+| 2 | **RRI** (Research / Risk / Robustness) | `python -m vibecodekit_mql5.rri --mode {personal,team,enterprise}` | `docs/rri-report.md` |
+| 3 | **VISION** | `python -m vibecodekit_mql5.vision` | `docs/vision.md` |
+| 4 | **BLUEPRINT** | `python -m vibecodekit_mql5.blueprint` | `docs/blueprint.md` |
+| 5 | **TIP** (8 Technical Implementation Points) | `python -m vibecodekit_mql5.tip` | `docs/tip.md` |
+| 6 | **BUILD** | `python -m vibecodekit_mql5.build <archetype>` hoặc `wizard`, `async-build` | Mã `.mq5` từ scaffold |
+| 7 | **VERIFY** | 10 lệnh từ `compile` → `multibroker` | XML report + ma trận 64 ô |
+| 8 | **REFINE + SHIP** | `python -m vibecodekit_mql5.refine` + `ship` | Tag git + push |
+
+### Phân loại 3 mode
+
+| Mode | Số câu RRI | Lớp permission chạy | Đối tượng |
+|------|----------|---------------------|----------|
+| `personal` | 5 q/persona × 6 = 30 | 1, 2, 3, 4, 7 | Solo trader |
+| `team` | 12 q/persona × 6 = 72 | 1-5, 7 | Team 2-5 dev |
+| `enterprise` | 25 q/persona × 6 = 150 | 1-7 (đầy đủ) | Tổ chức / quỹ |
+
+---
+
+## 3. Lệnh theo từng giai đoạn
+
+### 3.1. Discovery (4 lệnh)
+
+```bash
+# Quét cây thư mục project, phân loại artefact
+python -m vibecodekit_mql5.scan ~/projects/eurusd-portfolio
+
+# Match mô tả tự do → scaffold archetype
+python -m vibecodekit_mql5.survey "MA cross strategy H1 trend following"
+# → primary: trend, variant: netting
+
+# Health check môi trường kit
+python -m vibecodekit_mql5.doctor
+
+# Chạy 70-test conformance battery
+python -m vibecodekit_mql5.audit
+```
+
+### 3.2. Plan — mở template (4 lệnh)
+
+```bash
+python -m vibecodekit_mql5.rri --mode team    # mở rri-template + chấm điểm
+python -m vibecodekit_mql5.vision             # mở step-3-vision template
+python -m vibecodekit_mql5.blueprint          # mở step-4-blueprint
+python -m vibecodekit_mql5.tip                # mở step-5-tip (8 TIP)
+```
+
+### 3.3. Build (8 lệnh)
+
+```bash
+# 1. Render scaffold tổng quát — chọn archetype + variant
+python -m vibecodekit_mql5.build stdlib --name MyEA --symbol EURUSD --tf H1
+# Archetype có sẵn: stdlib, trend, mean-reversion, breakout, scalping,
+# hedging-multi, news-trading, arbitrage-stat, library, indicator-only,
+# grid, dca, portfolio-basket, wizard-composable, hft-async, ml-onnx,
+# service-llm-bridge
+
+# 2. Wizard composable (CExpert + signal + trailing + money-mgmt)
+python -m vibecodekit_mql5.wizard --name MyWizardEA --symbol EURUSD --tf H1
+
+# 3. HFT async — OrderSendAsync + OnTradeTransaction handler
+python -m vibecodekit_mql5.async_build --name MyHftEA --symbol EURUSD --tf M1
+
+# 4. Patch EA hiện có dùng CPipNormalizer
+python -m vibecodekit_mql5.pip_normalize MyEA.mq5
+
+# 5. Export PyTorch / TF → ONNX (opset ≥ 14)
+python -m vibecodekit_mql5.onnx_export model.pt --output model.onnx --opset 14
+
+# 6. Embed file .onnx vào .mq5 qua #resource + COnnxLoader
+python -m vibecodekit_mql5.onnx_embed MyEA.mq5 --model model.onnx
+
+# 7. Wire LLM bridge vào EA hiện có
+python -m vibecodekit_mql5.llm_context MyEA.mq5 --pattern cloud-api
+# Pattern: cloud-api | self-hosted-ollama | embedded-onnx-llm
+
+# 8. Khởi tạo repo trên Algo Forge
+python -m vibecodekit_mql5.forge_init MyEA
+```
+
+### 3.4. Verify (10 lệnh)
+
+```bash
+# 1. Compile qua MetaEditor (Wine trên Linux)
+python -m vibecodekit_mql5.compile MyEA.mq5
+
+# 2. Lint 8 anti-pattern nghiêm trọng (ERROR-level, block ship)
+python -m vibecodekit_mql5.lint MyEA.mq5
+
+# 3. Method-hiding linter (build ≥ 5260 → ERROR; build < 5260 → WARN)
+python -m vibecodekit_mql5.method_hiding_check MyEA.mq5 --build 5260
+
+# 4. Drive Strategy Tester (sinh tester.ini + parse XML report)
+python -m vibecodekit_mql5.backtest --ea MyEA.ex5 --symbol EURUSD \
+    --period H1 --from 2023.01.01 --to 2024.12.31
+
+# 5. Walk-forward IS/OOS với correlation Sharpe
+python -m vibecodekit_mql5.walkforward --ea MyEA.ex5 --windows 12
+
+# 6. Monte-Carlo 1000-sim bootstrap drawdown
+python -m vibecodekit_mql5.monte_carlo --report tester.xml --sims 1000
+
+# 7. Overfit check (OOS/IS ratio trên 4 metric)
+python -m vibecodekit_mql5.overfit_check --is is.xml --oos oos.xml
+
+# 8. Multi-broker orchestrator (N broker stability)
+python -m vibecodekit_mql5.multibroker --ea MyEA.ex5 --brokers brokers.json
+
+# 9. Custom fitness emitter (5 template OnTester)
+python -m vibecodekit_mql5.fitness --template sharpe_recovery > OnTester.mq5
+
+# 10. MFE/MAE per-trade analyser
+python -m vibecodekit_mql5.mfe_mae --log mfe.csv --report mfe-report.html
+```
+
+### 3.5. RRI methodology (3 lệnh review chuyên dụng)
+
+```bash
+# Backtest review — 5 persona × 7 dim × 8 axis
+python -m vibecodekit_mql5.rri.rri_bt --report tester.xml --mode enterprise
+
+# Risk & Robustness review
+python -m vibecodekit_mql5.rri.rri_rr --report tester.xml
+
+# Indicator-dev RRI (optional, chỉ áp dụng cho strategy indicator-only)
+python -m vibecodekit_mql5.rri.rri_chart --symbol EURUSD --tf H1
+```
+
+### 3.6. Review opener (5 lệnh)
+
+5 lệnh này mở template markdown để bạn (hoặc reviewer) điền:
+
+```bash
+python -m vibecodekit_mql5.review.review       # review tổng quát
+python -m vibecodekit_mql5.review.eng_review   # engineering review
+python -m vibecodekit_mql5.review.ceo_review   # leadership / CEO review
+python -m vibecodekit_mql5.review.cso          # strategy review
+python -m vibecodekit_mql5.review.investigate  # incident investigation
+```
+
+### 3.7. Deploy (3 lệnh)
+
+```bash
+# Sinh checklist MIGRATE-VPS.md cho VPS deployment
+python -m vibecodekit_mql5.deploy_vps --ea MyEA.ex5 --vps-host myvps.example.com
+
+# Sinh tester.ini cho Cloud Network optimization
+# Mode PERSONAL bị reject (quá đắt); ENTERPRISE phải có budget cap
+python -m vibecodekit_mql5.cloud_optimize --ea MyEA --budget-usd 50 --mode enterprise
+
+# Canary live monitor 30 phút sau deploy
+# Đọc journal MT5 qua mt5-bridge MCP; alert nếu error_rate > 1/min,
+# slippage_p95 > 1 pip, hoặc DD > 5%
+python -m vibecodekit_mql5.canary MyEA.ex5 --duration 30m
+```
+
+### 3.8. Ship (3 lệnh)
+
+```bash
+# Push PR sang Algo Forge
+python -m vibecodekit_mql5.forge_pr feature-branch --target main
+
+# Git tag + push (dry-run trước cho an toàn)
+python -m vibecodekit_mql5.ship --tag v1.0.1 --dry-run
+python -m vibecodekit_mql5.ship --tag v1.0.1
+
+# Phân loại diff thành tweak / patch / rework
+python -m vibecodekit_mql5.refine --diff change.patch
+# Output: { "classification": "tweak", "files_touched": ["set.set"], ... }
+```
+
+### 3.9. Other (4 lệnh)
+
+```bash
+# Verify pip-norm + multi-broker
+python -m vibecodekit_mql5.broker_safety MyEA.mq5
+
+# Trader-17 checklist (17 mục, pass threshold 15/17)
+python -m vibecodekit_mql5.trader_check MyEA.mq5
+
+# Reconcile-install kit overlay vào project có sẵn
+python -m vibecodekit_mql5.install ~/existing-mt5-project
+
+# One-shot lint + Trader-17 second opinion (optional)
+python -m vibecodekit_mql5.second_opinion MyEA.mq5
+```
+
+---
+
+## 4. Ví dụ hoàn chỉnh: MACD+SAR EURUSD H1
+
+Worked example đầy đủ ở `examples/ea-wizard-macd-sar-eurusd-h1-portfolio/`.
+Đây là turnaround **4 tiếng ở chế độ enterprise** trên Devin VM.
+
+### Bước 1 — SCAN (5 phút)
+```bash
+python -m vibecodekit_mql5.scan ~/projects/eurusd-portfolio
+# Kết quả: cây trống
+```
+
+### Bước 2 — RRI (90 phút, enterprise)
+```bash
+python -m vibecodekit_mql5.rri.step_workflow --mode enterprise
+# 6 persona × 25 câu = 150 câu hỏi
+# Output: docs/rri-report.md
+```
+
+### Bước 3 — VISION (15 phút)
+Mở template `docs/rri-templates/step-3-vision.md.tmpl` và điền:
+- Hypothesis: MACD signal cross gated by Parabolic-SAR flip
+- Scope: EURUSD H1 netting account
+- Out of scope: hedging, multi-symbol, news filter
+
+### Bước 4 — BLUEPRINT (30 phút)
+Mở `step-4-blueprint.md.tmpl`. Quyết định:
+- Archetype: `wizard-composable/netting`
+- Includes cần dùng: `CPipNormalizer`, `CRiskGuard`, `CMagicRegistry`, `CMfeMaeLogger`
+- Magic number: 5001
+
+### Bước 5 — TIP (8 TIP, ~30 phút)
+8 Technical Implementation Points — chi tiết về SL/TP, risk per trade,
+filter, trailing, kill switch, slippage limit, news blackout, weekly DD cap.
+
+### Bước 6 — BUILD (10 phút)
+```bash
+python -m vibecodekit_mql5.wizard \
+    --name EAMacdSarPortfolio \
+    --symbol EURUSD --tf H1 \
+    --output ~/projects/eurusd-portfolio
+```
+
+### Bước 7 — VERIFY (multi-stage, ~60 phút)
+```bash
+python -m vibecodekit_mql5.compile         EAMacdSarPortfolio.mq5
+python -m vibecodekit_mql5.lint            EAMacdSarPortfolio.mq5
+python -m vibecodekit_mql5.method_hiding_check EAMacdSarPortfolio.mq5
+python -m vibecodekit_mql5.backtest        --ea EAMacdSarPortfolio.ex5 ...
+python -m vibecodekit_mql5.walkforward     --ea EAMacdSarPortfolio.ex5 --windows 12
+python -m vibecodekit_mql5.monte_carlo     --report tester.xml --sims 1000
+python -m vibecodekit_mql5.overfit_check   --is is.xml --oos oos.xml
+python -m vibecodekit_mql5.multibroker     --ea EAMacdSarPortfolio.ex5 --brokers 5
+python -m vibecodekit_mql5.rri.rri_bt      --report tester.xml --mode enterprise
+```
+
+### Bước 8 — REFINE + SHIP (~10 phút)
+```bash
+python -m vibecodekit_mql5.refine --diff change.patch
+python -m vibecodekit_mql5.ship --tag v1.0.0 --dry-run
+python -m vibecodekit_mql5.ship --tag v1.0.0
+```
+
+Kết quả: EA `EAMacdSarPortfolio.ex5` + `.set` file + ma trận 64 ô +
+backtest XML + MFE/MAE report + canary log — đầy đủ 5 artefact ở
+`examples/ea-wizard-macd-sar-eurusd-h1-portfolio/results/`.
+
+---
+
+## 5. Tích hợp 3 MCP server
+
+Kit ship 3 MCP server theo chuẩn JSON-RPC 2.0 over stdio. Dùng được
+từ bất kỳ MCP client nào (Claude Desktop, Cursor, Codex, Devin, …).
+
+### 5.1. metaeditor-bridge
+
+3 tool: `metaeditor.compile`, `metaeditor.parse_log`, `metaeditor.includes_resolve`
+
+Khởi động:
+```bash
+python mcp/metaeditor-bridge/server.py
+```
+
+### 5.2. mt5-bridge (READ-ONLY)
+
+10 tool **chỉ-đọc** (KHÔNG có `order_send`, `order_close`, hay
+`position_modify` — được enforce bằng test `test_mt5_bridge_readonly_no_trade`):
+
+- `mt5.symbols.list`, `mt5.symbol.info`
+- `mt5.rates.copy`, `mt5.tick.last`
+- `mt5.account.info`, `mt5.terminal.info`
+- `mt5.positions.list`, `mt5.positions.history`
+- `mt5.history.deals`, `mt5.market.book`
+
+Khởi động:
+```bash
+python mcp/mt5-bridge/server.py
+```
+
+### 5.3. algo-forge-bridge
+
+6 tool: `forge.init`, `forge.clone`, `forge.commit`, `forge.pr.create`,
+`forge.pr.list`, `forge.repo.list`. Cần `ALGO_FORGE_API_KEY` env var.
+
+Khởi động:
+```bash
+ALGO_FORGE_API_KEY=xxx python mcp/algo-forge-bridge/server.py
+```
+
+### 5.4. Cấu hình MCP client
+
+Xem [docs/ENV-SETUP-vi.md](ENV-SETUP-vi.md) cho cấu hình cụ thể từng
+IDE/CLI (Claude Desktop, Cursor, Codex, Devin).
+
+---
+
+## 6. 22 anti-pattern detector
+
+Lint chia 2 cấp:
+
+### 6.1. Critical APs — ERROR, block ship (8)
+
+| ID | Mô tả | Detector ở đâu |
+|----|------|----------------|
+| AP-1 | `OrderSend` không có SL | `scripts/vibecodekit_mql5/lint.py` |
+| AP-3 | Lot cố định, không risk-based | `lint.py` |
+| AP-5 | EA overfit (in-sample only, không OOS) | `lint.py` |
+| AP-15 | `OrderSend` thô, không qua `CTrade` | `lint.py` |
+| AP-17 | `WebRequest` gọi trong `OnTick` | `lint.py` |
+| AP-18 | `OrderSendAsync` thiếu `OnTradeTransaction` handler | `lint.py` |
+| AP-20 | Hardcode pip (`* 0.0001`, `* _Point`) | `lint.py` |
+| AP-21 | JPY/XAU digits broken (`digits-tested:` < 2 class) | `lint.py` |
+
+### 6.2. Best-practice APs — WARN, không block (13)
+
+| ID | Mô tả | Detector |
+|----|------|---------|
+| AP-2 | SL quá chặt | `lint_best_practice.py` |
+| AP-4 | Martingale không có cap | `lint_best_practice.py` |
+| AP-6 | Curve-fitted optimization | `lint_best_practice.py` |
+| AP-7 | Magic number hardcode | `lint_best_practice.py` |
+| AP-8 | Không có spread guard | `lint_best_practice.py` |
+| AP-9 | Multi-entry trên cùng bar | `lint_best_practice.py` |
+| AP-10 | `OrderSend` không check return | `lint_best_practice.py` |
+| AP-11 | EA blind về mode (netting vs hedging) | `lint_best_practice.py` |
+| AP-12 | Leak indicator handle (không release) | `lint_best_practice.py` |
+| AP-13 | EA broker-coupled (`SymbolInfoDouble` hardcode) | `lint_best_practice.py` |
+| AP-14 | Không log MFE/MAE | `lint_best_practice.py` |
+| AP-16 | Reinvent stdlib (tự code thay vì `CTrade`) | `lint_best_practice.py` |
+| AP-19 | ONNX không validate trên Strategy Tester | `lint_best_practice.py` |
+
+### 6.3. Method-hiding (1, build-aware)
+
+Build MetaEditor ≥ 5260 báo ERROR khi subclass `CExpert` có method
+trùng tên với base class mà thiếu `using BaseClass::method;`. Build
+< 5260 chỉ WARN.
+
+```bash
+python -m vibecodekit_mql5.method_hiding_check MyEA.mq5 --build 5260
+```
+
+---
+
+## 7. Troubleshooting
+
+### "wine: command not found"
+- Linux: `./scripts/setup-wine-metaeditor.sh` chưa chạy thành công.
+- macOS: `brew install --cask wine-stable`.
+- Windows: không cần Wine — đặt `METAEDITOR_BIN=C:\Path\To\metaeditor64.exe`.
+
+### `python -m vibecodekit_mql5.doctor` báo "metaeditor-bin: not found"
+- Đặt biến môi trường `METAEDITOR_BIN`:
+  ```bash
+  export METAEDITOR_BIN=~/.wine/drive_c/Program\ Files/MetaTrader\ 5/metaeditor64.exe
+  ```
+
+### Test ONNX e2e fail vì PyTorch không cài
+```bash
+pip install torch --index-url https://download.pytorch.org/whl/cpu
+pip install onnx onnxscript
+```
+
+### `audit-plan-v5.py --post-phase=E` báo missing scaffold
+- Chạy `git status` xem có file scaffold nào untracked không.
+- Kiểm tra `.gitignore` không loại nhầm artefact:
+  ```bash
+  git check-ignore -v examples/**/results/canary.log
+  ```
+
+### MCP server `mt5-bridge` báo "MetaTrader5 not installed"
+```bash
+pip install MetaTrader5  # chỉ chạy được trên Windows hoặc Wine với MT5 desktop
+```
+
+### `forge_init` báo 401 Unauthorized
+- Đặt `ALGO_FORGE_API_KEY` qua secrets manager hoặc env var:
+  ```bash
+  export ALGO_FORGE_API_KEY=your_key_here
+  ```
+
+### "Linguist phân loại repo là MQL4 thay vì MQL5"
+- Đã fix ở `.gitattributes` (PR #17). Nếu vẫn thấy MQL4 trên GitHub
+  language bar, đợi 10 phút sau commit để GitHub re-run Linguist.
+
+---
+
+## Tài nguyên bổ sung
+
+- [`docs/COMMANDS.md`](COMMANDS.md) — Bảng tra cứu 43 lệnh
+- [`docs/references/`](references/) — 28 cheatsheet kỹ thuật (50-survey → 79-pip-norm)
+- [`docs/PLAN-v5.md`](PLAN-v5.md) — Spec gốc 1089 dòng
+- [`docs/anti-patterns-AVOID.md`](anti-patterns-AVOID.md) — Anti-pattern phải tránh từ VCK-HU
+- [`docs/rri-personas/`](rri-personas/) — 6 file YAML × 25 câu hỏi
+- [`docs/rri-templates/`](rri-templates/) — 8 template markdown step-by-step
+- [`examples/ea-wizard-macd-sar-eurusd-h1-portfolio/`](../examples/ea-wizard-macd-sar-eurusd-h1-portfolio/) — Worked example 4 tiếng
+
+Câu hỏi / báo lỗi → mở issue trên
+https://github.com/BuildMqlCodekit-01/vibecodekit-mql5-ea/issues
