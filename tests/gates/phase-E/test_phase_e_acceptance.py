@@ -131,6 +131,22 @@ def test_audit_runs_all_70_conformance() -> None:
     assert len(rep.probes) >= 60, f"only {len(rep.probes)} probes"
 
 
+def test_version_metadata_consistent() -> None:
+    """VERSION file, pyproject.toml, and vibecodekit_mql5.__version__ must agree."""
+    import re
+    version_file = (REPO_ROOT / "VERSION").read_text().strip()
+    pyproject = (REPO_ROOT / "pyproject.toml").read_text()
+    match = re.search(r'^version\s*=\s*"([^"]+)"', pyproject, re.MULTILINE)
+    assert match, "pyproject.toml has no version key"
+    pyproject_version = match.group(1)
+    import vibecodekit_mql5
+    pkg_version = vibecodekit_mql5.__version__
+    assert version_file == pyproject_version == pkg_version, (
+        f"version mismatch: VERSION={version_file!r}, "
+        f"pyproject={pyproject_version!r}, __version__={pkg_version!r}"
+    )
+
+
 def test_phase_e_command_catalog_callable() -> None:
     """Every command listed in the Phase E acceptance gate must be importable."""
     import importlib
