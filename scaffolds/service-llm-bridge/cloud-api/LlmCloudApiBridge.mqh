@@ -68,9 +68,13 @@ public:
                                     "\"messages\":[{\"role\":\"user\","
                                     "\"content\":\"Trend for %s now? Reply BUY|SELL|FLAT only.\"}]}",
                                     symbol);
-      // StringToCharArray: count=-1 means convert until the source-string
-      // terminator (MQL5 has no whole-string sentinel for char counts).
-      char post[]; StringToCharArray(payload, post, 0, -1, CP_UTF8);
+      // StringToCharArray: when count=-1, MQL5 copies the trailing 0
+      // terminator into the output array. WebRequest then sends those
+      // bytes verbatim, and strict JSON parsers (Python json.loads(),
+      // Go json.Unmarshal()) reject the trailing \0 with a parse error.
+      // Use StringLen(payload) so the request body is exactly the JSON
+      // bytes — no trailing null.
+      char post[]; StringToCharArray(payload, post, 0, StringLen(payload), CP_UTF8);
       char result[]; string headers_out;
       int code = WebRequest("POST", m_endpoint,
                             "Authorization: Bearer " + m_api_key + "\r\n"

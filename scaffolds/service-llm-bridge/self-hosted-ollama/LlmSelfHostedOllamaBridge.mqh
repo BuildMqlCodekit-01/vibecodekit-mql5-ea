@@ -55,9 +55,11 @@ public:
       string payload = StringFormat("{\"model\":\"%s\",\"prompt\":"
                                     "\"Trend for %s now? Reply BUY|SELL|FLAT only.\","
                                     "\"stream\":false}", m_model, symbol);
-      // StringToCharArray: count=-1 means convert until the source-string
-      // terminator (MQL5 has no whole-string sentinel for char counts).
-      char post[]; StringToCharArray(payload, post, 0, -1, CP_UTF8);
+      // StringToCharArray with count=-1 copies the trailing 0 into
+      // the array; Ollama's Go HTTP server then sees JSON followed by
+      // a null byte and json.Unmarshal() rejects it. Use StringLen()
+      // so the request body is exactly the JSON bytes.
+      char post[]; StringToCharArray(payload, post, 0, StringLen(payload), CP_UTF8);
       char result[]; string headers_out;
       int code = WebRequest("POST", m_endpoint,
                             "Content-Type: application/json\r\n",
