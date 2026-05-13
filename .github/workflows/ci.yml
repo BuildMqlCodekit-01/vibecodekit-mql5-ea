@@ -76,6 +76,8 @@ jobs:
           done
         env:
           WINEPREFIX: /home/runner/.wine-mql5
+          WINEDEBUG: "-all"
+          WINEDLLOVERRIDES: "mscoree,mshtml="
       
       - name: Upload test artifacts
         if: always()

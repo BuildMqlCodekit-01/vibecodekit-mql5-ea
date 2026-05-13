@@ -116,10 +116,26 @@ setup_wine_prefix() {
     export WINEDLLOVERRIDES="${WINEDLLOVERRIDES:-mscoree,mshtml=}"
 
     if [[ ! -d "$WINEPREFIX" ]]; then
+        # Pre-create the prefix directory as root. Wine refuses to create a
+        # config dir if the parent (e.g. /home/runner) is not owned by the
+        # current uid; making the prefix dir itself root-owned satisfies the
+        # safety check while letting wineboot --init populate it.
+        mkdir -p "$WINEPREFIX"
         timeout 180 wineboot --init 2>&1 | tee -a "$LOG" || true
         log "Wine prefix initialized."
     else
         log "Wine prefix exists."
+    fi
+}
+
+handoff_prefix_to_caller() {
+    # When the script is invoked via `sudo`, wine ran as root and the prefix
+    # is now owned by root. Pytest (and CI) will invoke wine as the original
+    # user — wine refuses to use a prefix not owned by the current uid, so
+    # chown everything to $SUDO_USER if we have one.
+    if [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != "root" ]]; then
+        log "Chowning $WINEPREFIX to $SUDO_USER (so user-mode wine can read it)..."
+        chown -R "$SUDO_USER:$SUDO_USER" "$WINEPREFIX"
     fi
 }
 
@@ -215,6 +231,7 @@ main() {
     setup_wine_prefix
     download_mt5_installer
     install_mt5
+    handoff_prefix_to_caller
     setup_python_venv
     verify_smoke
     
