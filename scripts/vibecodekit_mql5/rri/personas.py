@@ -6,7 +6,7 @@ spread across three audit modes:
 
     PERSONAL    — 5 questions / persona  → 30 total
     TEAM        — 12 questions / persona → 72 total
-    ENTERPRISE  — 25 questions / persona → 450 total
+    ENTERPRISE  — 25 questions / persona → 150 total
 
 Questions live in ``docs/rri-personas/<persona>.yaml`` and carry both a
 ``priority`` (critical / high / standard) and an ``applicable_modes`` list.
