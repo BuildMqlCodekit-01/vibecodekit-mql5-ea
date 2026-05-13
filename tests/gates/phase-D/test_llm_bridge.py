@@ -39,9 +39,16 @@ def test_scaffold_ships_with_fallback(pattern: str, header_cls: str) -> None:
 
 
 @pytest.mark.parametrize(
-    "pattern", ["cloud-api", "self-hosted-ollama", "embedded-onnx-llm"],
+    "pattern,expected_init_args",
+    [
+        ("cloud-api",          "_Symbol, _Period, 5000"),
+        ("self-hosted-ollama", "_Symbol, _Period, 5000"),
+        ("embedded-onnx-llm",  "NULL, _Symbol, _Period"),
+    ],
 )
-def test_wire_llm_inserts_include(pattern: str, tmp_path: Path) -> None:
+def test_wire_llm_inserts_include(
+    pattern: str, expected_init_args: str, tmp_path: Path,
+) -> None:
     mq5 = tmp_path / "EA.mq5"
     mq5.write_text(
         '#property strict\n\nint OnInit() { return INIT_SUCCEEDED; }\n',
@@ -53,7 +60,10 @@ def test_wire_llm_inserts_include(pattern: str, tmp_path: Path) -> None:
     expected_cls = llm_context._pattern_class(pattern)
     assert f'#include "{expected_cls}.mqh"' in body
     assert f"{expected_cls} llm;" in body
-    assert "llm.Init(" in body
+    # Regression: every bridge's Init() takes mandatory args; an argument-less
+    # ``llm.Init()`` call won't compile against the new signatures.
+    assert "llm.Init()" not in body
+    assert f"llm.Init({expected_init_args})" in body
 
 
 # --- regression tests for the Phase D review findings -----------------
