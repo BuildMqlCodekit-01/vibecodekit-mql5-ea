@@ -1,0 +1,101 @@
+"""Tests for the 13 best-practice anti-pattern detectors added to lint.py
+in Phase C. 5 sampled detectors plus a coverage check; total: 5 unit
+tests (the coverage check is itself one of them)."""
+
+from __future__ import annotations
+
+from vibecodekit_mql5 import lint, lint_best_practice
+
+
+def _findings_for(src: str, code: str) -> list:
+    raw = src
+    findings = lint.lint_source("file.mq5", raw)
+    return [f for f in findings if f.code == code]
+
+
+def test_best_practice_detectors_are_all_wired():
+    codes = {c for c, _ in lint_best_practice.BEST_PRACTICE_DETECTORS}
+    expected = {"AP-2", "AP-4", "AP-6", "AP-7", "AP-8", "AP-9", "AP-10",
+                "AP-11", "AP-12", "AP-13", "AP-14", "AP-16", "AP-19"}
+    assert codes == expected
+    assert len(codes) == 13
+
+
+def test_ap2_flags_tight_stoploss():
+    src = (
+        "// digits-tested: 5,3\n"
+        "double sl_pips = 3;\n"
+        "void OnTick(){ }\n"
+    )
+    findings = _findings_for(src, "AP-2")
+    assert len(findings) == 1
+    assert findings[0].severity == "WARN"
+
+
+def test_ap7_flags_hardcoded_magic_but_not_registry_use():
+    bad = (
+        "// digits-tested: 5,3\n"
+        "input int magic = 123456;\n"
+        "void OnTick(){ }\n"
+    )
+    good = (
+        "// digits-tested: 5,3\n"
+        "#include <CMagicRegistry.mqh>\n"
+        "CMagicRegistry MagicRegistry;\n"
+        "input int magic = 123456;\n"
+        "void OnTick(){ }\n"
+    )
+    assert _findings_for(bad, "AP-7"), "expected AP-7 on hardcoded magic"
+    assert not _findings_for(good, "AP-7"), "expected no AP-7 when CMagicRegistry present"
+
+
+def test_ap13_flags_hardcoded_broker_name():
+    src = (
+        "// digits-tested: 5,3\n"
+        'string broker = "Exness";\n'
+        "void OnTick(){ }\n"
+    )
+    findings = _findings_for(src, "AP-13")
+    assert len(findings) == 1
+
+
+def test_ap14_flags_missing_mfe_mae_logger():
+    src = (
+        "// digits-tested: 5,3\n"
+        "#include <Trade/Trade.mqh>\n"
+        "CTrade trade;\n"
+        "void OnTick(){ trade.Buy(0.01, NULL, 0, 1.0); }\n"
+    )
+    findings = _findings_for(src, "AP-14")
+    assert len(findings) == 1
+    assert findings[0].severity == "WARN"
+
+
+def test_ap16_flags_custom_trade_class():
+    src = (
+        "// digits-tested: 5,3\n"
+        "class CMyTrade {\n"
+        "    void Buy(double lot){}\n"
+        "};\n"
+    )
+    findings = _findings_for(src, "AP-16")
+    assert len(findings) == 1
+
+
+def test_best_practice_findings_are_warn_only():
+    """The 13 best-practice detectors must never emit ERROR — they are
+    advisory and Plan v5 §7 mandates they do NOT gate ship."""
+    src = (
+        "// digits-tested: 5,3\n"
+        "double sl_pips = 3;\n"
+        "input int magic = 123456;\n"
+        'string broker = "Exness";\n'
+        "#include <Trade/Trade.mqh>\n"
+        "CTrade trade;\n"
+        "void OnTick(){ trade.Buy(0.01, NULL, 0, 1.0); }\n"
+    )
+    findings = lint.lint_source("file.mq5", src)
+    best_practice_codes = {c for c, _ in lint_best_practice.BEST_PRACTICE_DETECTORS}
+    for f in findings:
+        if f.code in best_practice_codes:
+            assert f.severity == "WARN", f"{f.code} emitted {f.severity}, must be WARN"

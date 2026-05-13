@@ -182,6 +182,14 @@ _ALL_DETECTORS = [
     ("AP-21", detect_ap21),
 ]
 
+# Phase C adds 13 best-practice detectors (AP-2/4/6-14/16/19) as WARN-only.
+# They live in a separate module to keep this file under its 200-LOC ceiling.
+try:
+    from .lint_best_practice import BEST_PRACTICE_DETECTORS
+    _ALL_DETECTORS.extend(BEST_PRACTICE_DETECTORS)
+except ImportError:  # pragma: no cover — defensive; module always ships in Phase C
+    pass
+
 
 def lint_source(path: str, raw: str) -> list[Finding]:
     src = _strip_comments(raw)
