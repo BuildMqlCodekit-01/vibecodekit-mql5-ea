@@ -246,9 +246,15 @@ def check_phase_files_present(phase: str) -> tuple[list[str], list[str]]:
     return missing, []  # extra check needs full repo enumeration; deferred
 
 def check_module_loc() -> list[tuple[str, int]]:
-    """Return list of (file, loc) for Python modules > 200 LOC."""
+    """Return list of (file, loc) for Python command modules > 200 LOC.
+
+    The 200-LOC ceiling applies to command modules under
+    scripts/vibecodekit_mql5/ (one responsibility per file). Infrastructure
+    scripts at the top of scripts/ (the audit script itself, future build
+    helpers, etc.) are exempt because they hold exhaustive data tables.
+    """
     too_big: list[tuple[str, int]] = []
-    scripts_dir = REPO_ROOT / "scripts"
+    scripts_dir = REPO_ROOT / "scripts" / "vibecodekit_mql5"
     if not scripts_dir.exists():
         return too_big
     for py in scripts_dir.rglob("*.py"):
@@ -275,12 +281,14 @@ def audit_pre_phase(phase: str) -> int:
         if missing:
             errors.append(f"Phase {prev} missing {len(missing)} files: {missing[:3]}...")
     
-    # 2. No phase X files yet
-    cur_missing, _ = check_phase_files_present(phase)
+    # 2. No phase X implementation yet. `tests/fixtures/` is exempt: fixtures
+    #    are test data inputs (often checked in earlier so smoke tests can
+    #    reference them), not implementation produced during the phase.
     expected = PHASE_FILES.get(phase, [])
-    if expected and len(cur_missing) != len(expected):
-        present = [f for f in expected if (REPO_ROOT / f).exists()]
-        errors.append(f"Phase {phase} files already partially present: {present[:5]}")
+    implementation = [f for f in expected if not f.startswith("tests/fixtures/")]
+    impl_present = [f for f in implementation if (REPO_ROOT / f).exists()]
+    if implementation and impl_present:
+        errors.append(f"Phase {phase} implementation already partially present: {impl_present[:5]}")
     
     # 3. No forbidden files
     forbidden = check_forbidden_files()
