@@ -20,7 +20,7 @@ import json
 from pathlib import Path
 
 from .matrix import AXES, DIMS, MatrixReport, render_html
-from .personas import PERSONA_IDS, filter_for_mode, load_persona
+from .personas import filter_for_mode, load_persona
 
 RRI_BT_PERSONAS: tuple[str, ...] = (
     "trader",

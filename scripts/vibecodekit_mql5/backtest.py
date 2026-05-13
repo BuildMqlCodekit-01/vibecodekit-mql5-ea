@@ -22,7 +22,6 @@ import argparse
 import dataclasses
 import json
 import re
-import subprocess
 import sys
 import xml.etree.ElementTree as ET
 from dataclasses import dataclass, field
@@ -179,13 +178,17 @@ def parse_xml_report(text: str) -> BacktestResult:
     for tag, attr in _FLOAT_FIELDS.items():
         v = stats.findtext(tag)
         if v is not None:
-            try: setattr(out, attr, float(v))
-            except ValueError: pass
+            try:
+                setattr(out, attr, float(v))
+            except ValueError:
+                pass
     for tag, attr in _INT_FIELDS.items():
         v = stats.findtext(tag)
         if v is not None:
-            try: setattr(out, attr, int(v))
-            except ValueError: pass
+            try:
+                setattr(out, attr, int(v))
+            except ValueError:
+                pass
     return out
 
 
