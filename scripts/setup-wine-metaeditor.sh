@@ -22,16 +22,28 @@ check_root() {
 }
 
 install_packages() {
-    log "Installing system packages (Wine, xvfb, cabextract)..."
+    log "Installing system packages (Wine 8+ from WineHQ, xvfb, cabextract)..."
     dpkg --add-architecture i386 || true
+
+    # Add WineHQ repository (provides Wine 8.0+ stable on Ubuntu 22.04 jammy).
+    # Ubuntu's apt-default `wine64` is 6.0.3 which fails the Plan v5 smoke gate.
+    apt-get install -y -qq wget gnupg ca-certificates apt-transport-https 2>&1 | tee -a "$LOG"
+    mkdir -pm 755 /etc/apt/keyrings
+    if [[ ! -f /etc/apt/keyrings/winehq-archive.key ]]; then
+        wget -qO /etc/apt/keyrings/winehq-archive.key https://dl.winehq.org/wine-builds/winehq.key
+    fi
+    local codename
+    codename=$(. /etc/os-release && echo "$VERSION_CODENAME")
+    if [[ ! -f "/etc/apt/sources.list.d/winehq-${codename}.sources" ]]; then
+        wget -qNP /etc/apt/sources.list.d/ "https://dl.winehq.org/wine-builds/ubuntu/dists/${codename}/winehq-${codename}.sources"
+    fi
+
     apt-get update -qq
-    apt-get install -y -qq \
-        wget \
+    apt-get install -y -qq --install-recommends \
         cabextract \
         xvfb \
         winetricks \
-        wine64 \
-        wine32:i386 \
+        winehq-stable \
         winbind \
         python3 \
         python3-venv \
@@ -44,11 +56,13 @@ verify_wine_version() {
     local version
     version=$(wine --version 2>/dev/null | grep -oP '[\d.]+' | head -1)
     log "Wine version detected: $version"
-    
+
     local major
     major=$(echo "$version" | cut -d. -f1)
     if [[ "$major" -lt 8 ]]; then
-        log "WARN: Wine version < 8.0. Recommended Wine 8.0+. Continuing..."
+        log "ERROR: Wine $version is below the Plan v5 minimum (8.0+). Aborting."
+        log "       Check that winehq-stable was installed (not Ubuntu's wine64 6.x)."
+        exit 1
     fi
 }
 
@@ -87,10 +101,12 @@ install_mt5() {
     fi
     
     timeout 600 wine "$MT5_INSTALLER" /auto 2>&1 | tee -a "$LOG" || true
-    
-    # Verify metaeditor64.exe exists
+
+    # Verify metaeditor64.exe exists. Use case-insensitive search because the
+    # MT5 installer writes 'MetaEditor64.exe' (mixed case) and Linux ext4 is
+    # case-sensitive.
     local METAEDITOR_PATH
-    METAEDITOR_PATH=$(find "$WINEPREFIX" -name "metaeditor64.exe" 2>/dev/null | head -1)
+    METAEDITOR_PATH=$(find "$WINEPREFIX" -iname "metaeditor64.exe" 2>/dev/null | head -1)
     if [[ -z "$METAEDITOR_PATH" ]]; then
         log "ERROR: metaeditor64.exe not found after install"
         exit 1
