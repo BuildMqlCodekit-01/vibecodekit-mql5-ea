@@ -49,3 +49,28 @@ def test_parse_log_warning_only():
     assert r.success is True
     assert len(r.warnings) == 1
     assert "version" in r.warnings[0]
+
+
+# Regression: previously `"0 error" in low` substring-matched into "10 errors".
+TEN_ERRORS_LOG = """\
+Z:\\bulk.mq5(11,17) : error 256: undeclared identifier 'a'
+Z:\\bulk.mq5(12,17) : error 256: undeclared identifier 'b'
+Result: 10 errors, 0 warnings
+"""
+
+HUNDRED_ERRORS_LOG = """\
+Z:\\worse.mq5(1,1) : error 1: bad
+Result: 100 errors, 0 warnings
+"""
+
+
+def test_parse_log_ten_errors_is_failure():
+    """Regression for substring-match bug: `Result: 10 errors` must fail."""
+    r = parse_log(TEN_ERRORS_LOG)
+    assert r.success is False
+
+
+def test_parse_log_hundred_errors_is_failure():
+    """Regression: `Result: 100 errors` must fail, not pass."""
+    r = parse_log(HUNDRED_ERRORS_LOG)
+    assert r.success is False
