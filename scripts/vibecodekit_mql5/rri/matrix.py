@@ -16,7 +16,6 @@ import json
 from dataclasses import dataclass, field
 from html import escape
 from pathlib import Path
-from typing import Iterable
 
 DIMS: tuple[str, ...] = (
     "d_correctness",

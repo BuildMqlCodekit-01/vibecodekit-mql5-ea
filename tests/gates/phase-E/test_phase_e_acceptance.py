@@ -129,3 +129,27 @@ def test_audit_runs_all_70_conformance() -> None:
     from vibecodekit_mql5 import audit
     rep = audit.run_audit()
     assert len(rep.probes) >= 60, f"only {len(rep.probes)} probes"
+
+
+def test_phase_e_command_catalog_callable() -> None:
+    """Every command listed in the Phase E acceptance gate must be importable."""
+    import importlib
+    commands = [
+        "scan", "survey", "doctor", "audit", "rri", "vision", "blueprint",
+        "tip", "build", "wizard", "pip_normalize", "async_build",
+        "onnx_export", "onnx_embed", "llm_context", "forge_init", "compile",
+        "lint", "method_hiding_check", "backtest", "walkforward",
+        "monte_carlo", "overfit_check", "multibroker", "fitness", "mfe_mae",
+        "rri.rri_bt", "rri.rri_rr", "rri.rri_chart",
+        "review.review", "review.eng_review", "review.ceo_review",
+        "review.cso", "review.investigate",
+        "deploy_vps", "cloud_optimize", "canary", "forge_pr", "ship",
+        "refine", "broker_safety", "trader_check", "install",
+    ]
+    missing = []
+    for c in commands:
+        try:
+            importlib.import_module(f"vibecodekit_mql5.{c}")
+        except ImportError as exc:  # pragma: no cover — captured in assertion
+            missing.append(f"{c}: {exc}")
+    assert missing == [], "uncallable commands: " + ", ".join(missing)
