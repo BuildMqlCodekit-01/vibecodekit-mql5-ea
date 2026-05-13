@@ -7,10 +7,24 @@ calls out 5 templates that we expose under stable names:
     sortino       — Sharpe but downside-deviation only
     profit-dd     — Profit / MaxDD (recovery factor)
     expectancy    — average $ per trade
-    walkforward   — composite (75% IS Sharpe + 25% OOS Sharpe)
+    walkforward   — robustness Sharpe (single-pass surrogate)
 
 Each template returns the *MQL5-friendly* expression string that should be
 written to the tester's `OnTester()` function in the generated EA.
+
+Walk-forward note
+-----------------
+`OnTester()` is invoked **once per tester pass** and only sees its own
+period's statistics — there is no `STAT_SHARPE_RATIO_OOS` accessor on the
+MQL5 side. A genuine "75% IS + 25% OOS" composite therefore cannot be
+computed inside `OnTester()`. The kit produces that composite externally
+via ``mql5-walkforward`` (see :mod:`vibecodekit_mql5.walkforward`), which
+consumes the two separate XML reports MT5 emits when Forward 1/4 mode is
+enabled.
+
+The ``walkforward`` template below is a *single-pass robustness Sharpe* —
+plain Sharpe gated on min-trade-count, drawdown, and profit positivity —
+which is what an in-tester optimizer can reasonably score on its own.
 
 CLI:
     python -m vibecodekit_mql5.fitness <template>
@@ -48,11 +62,19 @@ TEMPLATES: dict[str, str] = {
         "double trades = TesterStatistics(STAT_TRADES);\n"
         "return (trades >= 30 && ep > 0) ? ep : 0.0;"
     ),
+    # NOTE: OnTester() runs once per tester pass and only sees its own
+    # period's stats — MQL5 has no STAT_SHARPE_RATIO_OOS. A true 75/25
+    # IS/OOS composite is therefore computed externally by
+    # `mql5-walkforward` against the two XML reports MT5 emits when
+    # Forward 1/4 mode is on. This template is the in-tester surrogate:
+    # plain Sharpe gated by min-trades + non-zero drawdown + positive PnL.
     "walkforward": (
-        "double sharpe_is = TesterStatistics(STAT_SHARPE_RATIO);\n"
-        "double sharpe_oos = TesterStatistics(STAT_SHARPE_RATIO);\n"
-        "if(sharpe_is <= 0 || sharpe_oos <= 0) return 0.0;\n"
-        "return 0.75 * sharpe_is + 0.25 * sharpe_oos;"
+        "double profit = TesterStatistics(STAT_PROFIT);\n"
+        "double trades = TesterStatistics(STAT_TRADES);\n"
+        "double sharpe = TesterStatistics(STAT_SHARPE_RATIO);\n"
+        "double dd     = TesterStatistics(STAT_BALANCEDD_PERCENT);\n"
+        "if(profit <= 0 || trades < 30 || dd <= 0 || sharpe <= 0) return 0.0;\n"
+        "return sharpe;"
     ),
 }
 
