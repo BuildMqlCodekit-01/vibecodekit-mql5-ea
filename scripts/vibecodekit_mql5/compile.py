@@ -21,6 +21,7 @@ from __future__ import annotations
 import argparse
 import json
 import os
+import re
 import shutil
 import subprocess
 import sys
@@ -57,12 +58,15 @@ def _decode_log(log: Path) -> str:
     if not log.exists():
         return ""
     raw = log.read_bytes()
-    # MetaEditor writes UTF-16-LE with a BOM.
-    for enc in ("utf-16-le", "utf-16", "utf-8", "latin-1"):
+    # MetaEditor writes UTF-16-LE with a BOM under standard configs; fall back
+    # progressively to other encodings. `errors='replace'` would make the loop
+    # dead code (decode never raises), so we let UnicodeDecodeError bubble.
+    for enc in ("utf-16-le", "utf-16", "utf-8"):
         try:
-            return raw.decode(enc, errors="replace").lstrip("\ufeff")
+            return raw.decode(enc).lstrip("\ufeff")
         except UnicodeDecodeError:
             continue
+    # Last resort — latin-1 cannot fail, decodes byte-for-byte.
     return raw.decode("latin-1", errors="replace")
 
 
@@ -86,9 +90,10 @@ def parse_log(text: str) -> CompileResult:
 
     success = False
     if result_line:
-        low = result_line.lower()
-        # MetaEditor prints `Result: <N> errors, <M> warnings, ...`
-        if "0 error" in low or "0 errors" in low:
+        # MetaEditor prints `Result: <N> errors, <M> warnings, ...`.
+        # Match on `\b0 errors?\b` so `10 errors` / `20 errors` / `100 errors`
+        # are not falsely classified as successful builds.
+        if re.search(r"\b0 errors?\b", result_line.lower()):
             success = True
     elif not errors:
         success = True
