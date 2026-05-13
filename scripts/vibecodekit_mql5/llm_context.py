@@ -27,6 +27,23 @@ from pathlib import Path
 
 PATTERNS = ("cloud-api", "self-hosted-ollama", "embedded-onnx-llm")
 
+# Match each scaffold's required Init() signature so the wired EA actually
+# compiles after `mql5-llm-context` runs.
+#
+#   cloud-api          : Init(symbol, tf, timeout_ms)
+#   self-hosted-ollama : Init(symbol, tf, timeout_ms)
+#   embedded-onnx-llm  : Init(onnx_ptr, symbol, tf)
+#
+# For embedded-onnx-llm the loader pointer is wired as NULL by default; the
+# bridge's ``SuggestOrFallback`` falls back to the rule path when the loader
+# pointer is NULL, so the EA still compiles + runs.  Swap NULL for the real
+# COnnxLoader pointer once that loader is wired into the EA.
+_INIT_ARGS = {
+    "cloud-api":          "_Symbol, _Period, 5000",
+    "self-hosted-ollama": "_Symbol, _Period, 5000",
+    "embedded-onnx-llm":  "NULL, _Symbol, _Period",
+}
+
 
 @dataclass
 class ContextReport:
@@ -79,9 +96,10 @@ def wire_llm(mq5_path: Path, pattern: str) -> ContextReport:
     if "llm.Init(" not in src:
         m = re.search(r"OnInit\s*\([^)]*\)\s*\{", src)
         if m:
+            args = _INIT_ARGS[pattern]
             ins = m.end()
             src = src[:ins] + (
-                "\n   if(!llm.Init()) return INIT_FAILED;\n"
+                f"\n   if(!llm.Init({args})) return INIT_FAILED;\n"
             ) + src[ins:]
             added_init = True
 
