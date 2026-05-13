@@ -28,22 +28,34 @@ CPipNormalizer pip;
 CRiskGuard     risk;
 CMagicRegistry registry;
 
+// MA handles — created once in OnInit (iMA returns a handle, not a value).
+int h_fast = INVALID_HANDLE;
+int h_slow = INVALID_HANDLE;
+
 int OnInit(void)
   {
    if(!pip.Init(_Symbol)) return INIT_FAILED;
    risk.Init(InpDailyLossPct, InpMaxPositions, 0.10);
    if(!registry.Check(InpMagic))
       registry.Reserve(InpMagic, "{{NAME}}");
+   h_fast = iMA(_Symbol, _Period, 50,  0, MODE_EMA, PRICE_CLOSE);
+   h_slow = iMA(_Symbol, _Period, 200, 0, MODE_EMA, PRICE_CLOSE);
+   if(h_fast == INVALID_HANDLE || h_slow == INVALID_HANDLE) return INIT_FAILED;
    Print("{{NAME}} initialized: symbol=", _Symbol, " pip=", pip.Pip());
    return INIT_SUCCEEDED;
   }
 
-void OnDeinit(const int reason) {}
+void OnDeinit(const int reason)
+  {
+   if(h_fast != INVALID_HANDLE) IndicatorRelease(h_fast);
+   if(h_slow != INVALID_HANDLE) IndicatorRelease(h_slow);
+  }
 
 void OnTick(void)
   {
-   // Fast/slow MA cross — placeholder strategy.
-   double fast = iMA(_Symbol, _Period, 50, 0, MODE_EMA, PRICE_CLOSE);
-   double slow = iMA(_Symbol, _Period, 200, 0, MODE_EMA, PRICE_CLOSE);
-   /* signal logic */
+   // Fast/slow MA cross — placeholder strategy. Read values via CopyBuffer.
+   double buf_fast[1], buf_slow[1];
+   if(CopyBuffer(h_fast, 0, 0, 1, buf_fast) != 1) return;
+   if(CopyBuffer(h_slow, 0, 0, 1, buf_slow) != 1) return;
+   /* signal logic on buf_fast[0] vs buf_slow[0] */
   }
