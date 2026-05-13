@@ -91,6 +91,12 @@ def _render_name(name: str, req: BuildRequest) -> str:
     return name.replace("EAName", req.name).replace("{{NAME}}", req.name)
 
 
+# Scaffold files with these suffixes are treated as binary: copied as raw
+# bytes, no template substitution. Everything else is text + rendered.
+_BINARY_SUFFIXES = frozenset({".onnx", ".png", ".jpg", ".jpeg", ".gif",
+                              ".ico", ".bin", ".dat"})
+
+
 def build(req: BuildRequest) -> Path:
     if req.preset not in PRESETS:
         raise ValueError(f"unknown preset {req.preset!r}; valid: {sorted(PRESETS)}")
@@ -117,8 +123,14 @@ def build(req: BuildRequest) -> Path:
         rel = src.relative_to(src_dir)
         dst = req.out_dir / Path(*[_render_name(p, req) for p in rel.parts])
         dst.parent.mkdir(parents=True, exist_ok=True)
-        text = src.read_text(encoding="utf-8", errors="replace")
-        dst.write_text(_render(text, req, magic), encoding="utf-8")
+        # Binary scaffold assets (.onnx model stubs, .png images, etc.)
+        # must be copied byte-for-byte. Text scaffolds get template
+        # substitution via _render().
+        if src.suffix.lower() in _BINARY_SUFFIXES:
+            dst.write_bytes(src.read_bytes())
+        else:
+            text = src.read_text(encoding="utf-8", errors="replace")
+            dst.write_text(_render(text, req, magic), encoding="utf-8")
 
     # Co-locate Include/.mqh files so /mql5-compile resolves them locally.
     if req.include_root.is_dir():
