@@ -37,6 +37,27 @@ PHASE_A_PRESETS: dict[str, list[str]] = {
     "ml-onnx":           ["python-bridge"],
 }
 
+# Phase D adds 14 additional scaffolds (1 HFT async, 3 LLM bridge variants,
+# 10 strategy archetypes). Keep this dict separate so Phase A tests remain
+# untouched but consumers see the combined map via PRESETS below.
+PHASE_D_PRESETS: dict[str, list[str]] = {
+    "hft-async":          ["netting"],
+    "service-llm-bridge": ["cloud-api", "self-hosted-ollama", "embedded-onnx-llm"],
+    "trend":              ["netting"],
+    "mean-reversion":     ["hedging"],
+    "breakout":           ["netting"],
+    "hedging-multi":      ["hedging"],
+    "news-trading":       ["netting"],
+    "arbitrage-stat":     ["python-bridge"],
+    "scalping":           ["hedging"],
+    "library":            ["netting"],
+    "indicator-only":     ["netting"],
+    "grid":               ["hedging"],
+    "dca":                ["hedging"],
+}
+
+PRESETS: dict[str, list[str]] = {**PHASE_A_PRESETS, **PHASE_D_PRESETS}
+
 
 @dataclass
 class BuildRequest:
@@ -71,12 +92,12 @@ def _render_name(name: str, req: BuildRequest) -> str:
 
 
 def build(req: BuildRequest) -> Path:
-    if req.preset not in PHASE_A_PRESETS:
-        raise ValueError(f"unknown preset {req.preset!r}; valid: {sorted(PHASE_A_PRESETS)}")
-    if req.stack not in PHASE_A_PRESETS[req.preset]:
+    if req.preset not in PRESETS:
+        raise ValueError(f"unknown preset {req.preset!r}; valid: {sorted(PRESETS)}")
+    if req.stack not in PRESETS[req.preset]:
         raise ValueError(
             f"preset {req.preset!r} does not support stack {req.stack!r}; "
-            f"valid: {PHASE_A_PRESETS[req.preset]}"
+            f"valid: {PRESETS[req.preset]}"
         )
 
     src_dir = req.scaffolds_root / req.preset / req.stack
@@ -108,7 +129,7 @@ def build(req: BuildRequest) -> Path:
 
 def main(argv: list[str] | None = None) -> int:
     p = argparse.ArgumentParser(prog="mql5-build", description=__doc__.splitlines()[0])
-    p.add_argument("preset", choices=sorted(PHASE_A_PRESETS))
+    p.add_argument("preset", choices=sorted(PRESETS))
     p.add_argument("--name",   required=True)
     p.add_argument("--symbol", required=True)
     p.add_argument("--tf",     required=True)
@@ -121,7 +142,7 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--force", action="store_true")
     args = p.parse_args(argv)
 
-    stack = args.stack or PHASE_A_PRESETS[args.preset][0]
+    stack = args.stack or PRESETS[args.preset][0]
     out_dir = Path(args.out) if args.out else Path.cwd() / args.name
     req = BuildRequest(
         preset=args.preset,
