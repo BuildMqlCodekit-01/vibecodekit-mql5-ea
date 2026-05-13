@@ -13,7 +13,12 @@
 #define __CAsyncTradeManager_MQH__
 
 #include "CPipNormalizer.mqh"
-#include <Trade\Trade.mqh>
+// Note: no <Trade\Trade.mqh> required. We call OrderSendAsync() directly
+// with the built-in MqlTradeRequest / MqlTradeResult structs and never
+// touch the stdlib CTrade class. Keeping this file stdlib-free means the
+// hft-async scaffold compiles on a fresh MetaEditor install (e.g. the
+// Wine MetaEditor that ships with the kit's Phase 0 setup) without the
+// MQL5/Include/ tree being bootstrapped first.
 
 struct AsyncPending
   {
