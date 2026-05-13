@@ -37,6 +37,20 @@ def test_worked_example_results_artefacts_complete() -> None:
         assert (EX_DIR / "results" / f).exists()
 
 
+def test_worked_example_canary_log_not_gitignored() -> None:
+    """Regression: ``*.log`` in .gitignore must not silently exclude canary.log."""
+    import subprocess
+    canary = EX_DIR / "results" / "canary.log"
+    # ``git check-ignore`` exits 0 when the path IS ignored; 1 means not ignored.
+    res = subprocess.run(
+        ["git", "check-ignore", str(canary)],
+        cwd=REPO_ROOT, capture_output=True, text=True,
+    )
+    assert res.returncode == 1, (
+        f"canary.log is excluded by .gitignore: {res.stdout.strip()}"
+    )
+
+
 def test_worked_example_matrix_html_color_codes_present() -> None:
     html = (EX_DIR / "results" / "matrix-64-cell.html").read_text()
     # 8 rows × 8 cols of color-coded cells.

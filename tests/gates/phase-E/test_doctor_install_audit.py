@@ -31,6 +31,14 @@ def test_audit_runs_and_returns_probes() -> None:
     assert len(rep.probes) >= 60
 
 
+def test_audit_all_probes_pass() -> None:
+    """Regression: every probe in the 70-test conformance battery must report ok."""
+    rep = audit.run_audit()
+    failed = [p for p in rep.probes if not p.ok]
+    assert failed == [], "audit probes failed: " + ", ".join(p.name for p in failed)
+    assert rep.ok
+
+
 def test_ship_dry_run() -> None:
     rep = ship.ship("v0.0.0-test", dry_run=True)
     assert rep.tag == "v0.0.0-test"

@@ -21,6 +21,7 @@ import json
 import re
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 
 
 @dataclass
@@ -58,7 +59,7 @@ def main(argv: list[str] | None = None) -> int:
     parser = argparse.ArgumentParser(prog="mql5-refine")
     parser.add_argument("--diff", help="path to a unified diff; reads stdin if omitted")
     args = parser.parse_args(argv)
-    text = open(args.diff, encoding="utf-8").read() if args.diff else sys.stdin.read()
+    text = Path(args.diff).read_text(encoding="utf-8") if args.diff else sys.stdin.read()
     rep = classify(text)
     print(json.dumps(rep.__dict__, indent=2))
     return 0
