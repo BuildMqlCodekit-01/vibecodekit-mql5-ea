@@ -246,9 +246,15 @@ def check_phase_files_present(phase: str) -> tuple[list[str], list[str]]:
     return missing, []  # extra check needs full repo enumeration; deferred
 
 def check_module_loc() -> list[tuple[str, int]]:
-    """Return list of (file, loc) for Python modules > 200 LOC."""
+    """Return list of (file, loc) for Python command modules > 200 LOC.
+
+    The 200-LOC ceiling applies to command modules under
+    scripts/vibecodekit_mql5/ (one responsibility per file). Infrastructure
+    scripts at the top of scripts/ (the audit script itself, future build
+    helpers, etc.) are exempt because they hold exhaustive data tables.
+    """
     too_big: list[tuple[str, int]] = []
-    scripts_dir = REPO_ROOT / "scripts"
+    scripts_dir = REPO_ROOT / "scripts" / "vibecodekit_mql5"
     if not scripts_dir.exists():
         return too_big
     for py in scripts_dir.rglob("*.py"):

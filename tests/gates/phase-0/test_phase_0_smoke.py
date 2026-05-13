@@ -31,9 +31,13 @@ def test_metaeditor_compile_demo_mq5(tmp_path):
     """Test 2: MetaEditor compiles a minimal .mq5 with 0 errors."""
     metaeditor = os.environ.get("METAEDITOR_PATH")
     if not metaeditor:
-        # Try Linux Wine path
+        # Try Linux Wine path. The MT5 installer writes "MetaEditor64.exe"
+        # (mixed case); rglob is case-sensitive on Linux, so match both forms.
         wineprefix = os.environ.get("WINEPREFIX", str(Path.home() / ".wine-mql5"))
-        candidates = list(Path(wineprefix).rglob("metaeditor64.exe")) if Path(wineprefix).exists() else []
+        candidates: list[Path] = []
+        if Path(wineprefix).exists():
+            for pattern in ("metaeditor64.exe", "MetaEditor64.exe"):
+                candidates.extend(Path(wineprefix).rglob(pattern))
         if candidates:
             metaeditor = str(candidates[0])
     if not metaeditor:

@@ -25,7 +25,11 @@ jobs:
       
       - name: Install Wine + MetaEditor
         run: |
-          sudo bash scripts/setup-wine-metaeditor.sh
+          # `sudo -E` preserves WINEPREFIX from the step env so the setup
+          # script installs MetaEditor into /home/runner/.wine-mql5, where
+          # the later test step looks for it. Plain `sudo` would reset HOME
+          # to /root and install into /root/.wine-mql5.
+          sudo -E bash scripts/setup-wine-metaeditor.sh
         env:
           WINEPREFIX: /home/runner/.wine-mql5
       
@@ -56,6 +60,13 @@ jobs:
       - name: Run all phase gate tests
         run: |
           source .venv/bin/activate
+          # Locate MetaEditor under the WINEPREFIX so the compile smoke test
+          # doesn't have to rglob a possibly mixed-case filename.
+          METAEDITOR_PATH=$(find "$WINEPREFIX" -iname "metaeditor64.exe" 2>/dev/null | head -1 || true)
+          if [ -n "$METAEDITOR_PATH" ]; then
+            export METAEDITOR_PATH
+            echo "Using METAEDITOR_PATH=$METAEDITOR_PATH"
+          fi
           # Run all phase gates that exist
           for phase_dir in tests/gates/phase-*; do
             if [ -d "$phase_dir" ]; then
@@ -65,6 +76,8 @@ jobs:
           done
         env:
           WINEPREFIX: /home/runner/.wine-mql5
+          WINEDEBUG: "-all"
+          WINEDLLOVERRIDES: "mscoree,mshtml="
       
       - name: Upload test artifacts
         if: always()
