@@ -36,21 +36,21 @@ int OnInit(void)
   {
    if(!pip.Init(_Symbol)) return INIT_FAILED;
    risk.Init(InpDailyLossPct, InpMaxPositions, 0.10);
-   llm.Init(InpLlmTimeoutMs);
+   if(!llm.Init(_Symbol, _Period, InpLlmTimeoutMs)) return INIT_FAILED;
    if(!registry.Check(InpMagic))
       registry.Reserve(InpMagic, "{{NAME}}");
+   EventSetTimer(30);
    return INIT_SUCCEEDED;
   }
 
-void OnDeinit(const int reason) {}
+void OnDeinit(const int reason) { EventKillTimer(); llm.Release(); }
 
 // LLM call MUST NOT run in OnTick (AP-17). Run on OnTimer instead.
-int OnTimer(void)
+void OnTimer(void)
   {
    string action = llm.SuggestOrFallback(_Symbol);
    if(action == "BUY")  { /* place buy via stdlib trader */ }
    if(action == "SELL") { /* place sell via stdlib trader */ }
-   return 0;
   }
 
 void OnTick(void) { /* execution-only path; LLM lives in OnTimer */ }

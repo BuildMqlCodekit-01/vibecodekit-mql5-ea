@@ -41,13 +41,13 @@ int OnInit(void)
    risk.Init(InpDailyLossPct, InpMaxPositions, 0.10);
    if(!onnx.InitFromResource("phi3_mini.onnx"))
       Print("[LlmOnnx] resource load failed; will use rule fallback");
-   llm.Init(GetPointer(onnx));
+   if(!llm.Init(GetPointer(onnx), _Symbol, _Period)) return INIT_FAILED;
    if(!registry.Check(InpMagic))
       registry.Reserve(InpMagic, "{{NAME}}");
    return INIT_SUCCEEDED;
   }
 
-void OnDeinit(const int reason) { onnx.Release(); }
+void OnDeinit(const int reason) { llm.Release(); onnx.Release(); }
 
 void OnTick(void)
   {

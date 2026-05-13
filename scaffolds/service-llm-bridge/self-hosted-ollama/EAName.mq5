@@ -37,7 +37,7 @@ int OnInit(void)
   {
    if(!pip.Init(_Symbol)) return INIT_FAILED;
    risk.Init(InpDailyLossPct, InpMaxPositions, 0.10);
-   llm.Init(InpLlmTimeoutMs);
+   if(!llm.Init(_Symbol, _Period, InpLlmTimeoutMs)) return INIT_FAILED;
    llm.SetModel(InpModel);
    if(!registry.Check(InpMagic))
       registry.Reserve(InpMagic, "{{NAME}}");
@@ -45,7 +45,7 @@ int OnInit(void)
    return INIT_SUCCEEDED;
   }
 
-void OnDeinit(const int reason) { EventKillTimer(); }
+void OnDeinit(const int reason) { EventKillTimer(); llm.Release(); }
 
 void OnTimer(void)
   {

@@ -11,7 +11,6 @@ failure — the unit gates in this directory cover correctness.
 from __future__ import annotations
 
 import importlib.util
-import json
 import time
 from pathlib import Path
 
@@ -25,7 +24,6 @@ HAS_ONNX = importlib.util.find_spec("onnx") is not None
 
 if HAS_TORCH:
     # Module-level class so torch.save can pickle it (locals can't be pickled).
-    import torch
     from torch import nn
 
     class _TinyLstm(nn.Module):

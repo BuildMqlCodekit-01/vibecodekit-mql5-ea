@@ -56,7 +56,7 @@ def test_embed_onnx_idempotent(tmp_path: Path) -> None:
     r1 = onnx_embed.embed_onnx(mq5, onnx)
     r2 = onnx_embed.embed_onnx(mq5, onnx)  # second pass must be a no-op
     body = mq5.read_text()
-    assert body.count(f'#resource "model.onnx"') == 1
+    assert body.count('#resource "model.onnx"') == 1
     assert body.count('#include "COnnxLoader.mqh"') == 1
     assert r1.added_resource and not r2.added_resource
 
