@@ -1,11 +1,11 @@
 ---
 id: usage-en
-title: vibecodekit-mql5-ea v1.0.0 Usage Guide (English)
+title: vibecodekit-mql5-ea v1.0.1 Usage Guide (English)
 applicable_phase: E
 audience: end_user, dev_team
 ---
 
-# `vibecodekit-mql5-ea` v1.0.0 Usage Guide
+# `vibecodekit-mql5-ea` v1.0.1 Usage Guide
 
 End-to-end walkthrough of all 43 commands, from idea to live shipping.
 Suitable for both new users and dev teams.
@@ -347,6 +347,15 @@ python mcp/metaeditor-bridge/server.py
 ```bash
 python mcp/mt5-bridge/server.py
 ```
+
+> ⚠️ **Platform note:** the `MetaTrader5` Python package only installs
+> on **Windows** (or a Wine-hosted MT5 desktop via `winetricks`). On a
+> plain Linux VM the import fails and every tool returns a
+> deterministic **stub payload** (empty symbol list, zero bars,
+> hardcoded `digits=5, point=0.00001` for `mt5.symbol.info`).  The
+> stubs keep the MCP contract testable hermetically but they are
+> **not live data**.  Run this server on Windows or under Wine MT5
+> when you need real account / market data.
 
 ### 5.3. algo-forge-bridge
 

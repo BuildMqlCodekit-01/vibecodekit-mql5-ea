@@ -1,15 +1,16 @@
-"""mql5-compile — thin wrapper around MetaEditor's CLI compile mode.
+r"""mql5-compile — thin wrapper around MetaEditor's CLI compile mode.
 
 Invokes:
     metaeditor64.exe /compile:<mq5> /log:<log>
 
 …then parses the (UTF-16-LE encoded) log to a structured result dict.
-On Linux, prepends `xvfb-run -a wine` so it Just Works under the same
-Wine prefix Phase 0 set up at $WINEPREFIX (default /home/ubuntu/.wine-mql5).
+On Linux, prepends ``xvfb-run -a wine`` so it Just Works under the
+same Wine prefix Phase 0 set up at $WINEPREFIX (default
+``/home/ubuntu/.wine-mql5``).
 
 The MQL5 docs say that the editor uses the Wine drive Z: mapping for
-non-C: paths; we translate any host path that starts with `/` to its
-`Z:\` Wine equivalent before passing it in.
+non-C: paths; we translate any host path that starts with ``/`` to its
+``Z:\`` Wine equivalent before passing it in.
 
 Exit codes:
     0 — compile succeeded (0 errors)

@@ -1,11 +1,11 @@
 ---
 id: usage-vi
-title: Hướng dẫn sử dụng vibecodekit-mql5-ea v1.0.0 (Tiếng Việt)
+title: Hướng dẫn sử dụng vibecodekit-mql5-ea v1.0.1 (Tiếng Việt)
 applicable_phase: E
 audience: end_user, dev_team
 ---
 
-# Hướng dẫn sử dụng `vibecodekit-mql5-ea` v1.0.0
+# Hướng dẫn sử dụng `vibecodekit-mql5-ea` v1.0.1
 
 Tài liệu này hướng dẫn từng bước cách dùng toàn bộ 43 lệnh để build một
 Expert Advisor MQL5 hoàn chỉnh, từ ý tưởng đến ship live. Phù hợp cho cả
@@ -417,6 +417,14 @@ Khởi động:
 ```bash
 python mcp/mt5-bridge/server.py
 ```
+
+> ⚠️ **Lưu ý platform:** package `MetaTrader5` chỉ cài được trên
+> **Windows** (hoặc Wine MT5 desktop qua `winetricks`). Trên Linux VM
+> thuần, import fail và mọi tool trả **stub payload** cố định
+> (symbol list rỗng, 0 bar, `digits=5, point=0.00001` hardcoded cho
+> `mt5.symbol.info`). Stub giữ MCP contract test hermetic được nhưng
+> **không phải data thật**. Để có market/account data live, chạy
+> server này trên Windows hoặc Wine MT5.
 
 ### 5.3. algo-forge-bridge
 

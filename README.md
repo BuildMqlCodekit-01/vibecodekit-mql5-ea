@@ -1,7 +1,7 @@
 # vibecodekit-mql5-ea
 
-[![version](https://img.shields.io/badge/version-v1.0.0-blue)](https://github.com/BuildMqlCodekit-01/vibecodekit-mql5-ea/releases/tag/v1.0.0)
-[![tests](https://img.shields.io/badge/tests-234%20passing-success)]()
+[![version](https://img.shields.io/badge/version-v1.0.1-blue)](https://github.com/BuildMqlCodekit-01/vibecodekit-mql5-ea/releases/tag/v1.0.1)
+[![tests](https://img.shields.io/badge/tests-260%20passing-success)]()
 [![lint](https://img.shields.io/badge/ruff-clean-success)]()
 [![license](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
@@ -17,7 +17,7 @@
 
 ## English
 
-### What you get in v1.0.0
+### What you get in v1.0.1
 
 | Layer | Shipped |
 |-------|---------|
@@ -31,7 +31,7 @@
 | **Mode-aware orchestrator** | PERSONAL (layers 1/2/3/4/7) · TEAM (1-5,7) · ENTERPRISE (1-7) |
 | **Trader checklist** | 17 items (`trader-check`) with 15/17 PASS threshold |
 | **Worked example** | `examples/ea-wizard-macd-sar-eurusd-h1-portfolio/` — 4-hour enterprise turnaround |
-| **Test gate** | 234 tests passing across Phase 0/A/B/C/D/E |
+| **Test gate** | 260 tests passing across Phase 0/A/B/C/D/E |
 
 ### Quick start (5 minutes)
 
@@ -62,7 +62,7 @@ Detailed walk-throughs:
 | B | `v0.2.0` | Test & validation | Strategy Tester driver, walk-forward, Monte-Carlo, multi-broker, Trader-17 checklist |
 | C | `v0.3.0` | Methodology | 6 RRI personas × 25 q × 3 modes, 8-step workflow, 64-cell quality matrix, 7-layer permission orchestrator |
 | D | `v0.5.0` | Tech 2024-2025 | ONNX runtime 1.14 export/embed, HFT async (`OrderSendAsync` + `OnTradeTransaction`), Algo Forge, LLM bridge (3 patterns), Cloud Network optimize, method-hiding linter |
-| **E** | **`v1.0.0`** | **Polish & ship** | **28 reference docs, 3 MCP servers, `/mql5-canary`, 4-hour worked example** |
+| **E** | **`v1.0.1`** | **Polish & ship** | **28 reference docs, 3 MCP servers, `/mql5-canary`, 4-hour worked example, full `[project.scripts]` entry-point coverage** |
 
 ### Anti-patterns this kit refuses to ship
 
@@ -89,7 +89,7 @@ hot-spots:
 
 ## Tiếng Việt
 
-### v1.0.0 có gì
+### v1.0.1 có gì
 
 | Thành phần | Đã giao |
 |-----------|---------|
@@ -103,7 +103,7 @@ hot-spots:
 | **Mode orchestrator** | PERSONAL (lớp 1/2/3/4/7) · TEAM (1-5, 7) · ENTERPRISE (1-7) |
 | **Trader checklist** | 17 mục (`trader-check`), ngưỡng pass 15/17 |
 | **Ví dụ hoàn chỉnh** | `examples/ea-wizard-macd-sar-eurusd-h1-portfolio/` — turnaround 4 tiếng ở chế độ enterprise |
-| **Test gate** | 234 test pass qua Phase 0/A/B/C/D/E |
+| **Test gate** | 260 test pass qua Phase 0/A/B/C/D/E |
 
 ### Bắt đầu nhanh (5 phút)
 
@@ -134,7 +134,7 @@ Hướng dẫn chi tiết:
 | B | `v0.2.0` | Test & validation | Driver Strategy Tester, walk-forward, Monte-Carlo, multi-broker, Trader-17 |
 | C | `v0.3.0` | Phương pháp luận | 6 RRI persona × 25 câu × 3 mode, workflow 8 bước, ma trận 64 ô, orchestrator 7 lớp |
 | D | `v0.5.0` | Công nghệ 2024-2025 | ONNX runtime 1.14, HFT async, Algo Forge, LLM bridge (3 pattern), Cloud Network optimize, method-hiding linter |
-| **E** | **`v1.0.0`** | **Polish & ship** | **28 tài liệu tham khảo, 3 MCP server, `/mql5-canary`, worked example 4 tiếng** |
+| **E** | **`v1.0.1`** | **Polish & ship** | **28 tài liệu tham khảo, 3 MCP server, `/mql5-canary`, worked example 4 tiếng, đầy đủ entry-point `[project.scripts]`** |
 
 ### Anti-pattern kit từ chối ship
 
