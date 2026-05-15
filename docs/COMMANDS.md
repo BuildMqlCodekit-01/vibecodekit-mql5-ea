@@ -31,11 +31,12 @@ No master `/mql5` router — every command stands alone.
 - `/mql5-llm-context`       — wire an LLM bridge into an existing EA
 - `/mql5-forge-init`        — initialise an Algo Forge repo
 
-## Verify (10)
+## Verify (11)
 - `/mql5-compile`             — MetaEditor build (Wine on Linux)
 - `/mql5-lint`                — 8 critical anti-pattern detectors
 - `/mql5-method-hiding-check` — build-aware AP-21 detector
 - `/mql5-backtest`            — parse Strategy Tester XML → 14 metrics JSON (you run the tester)
+- `/mql5-tester-run`          — drive `terminal64.exe` (Wine or native) with a rendered `tester.ini` and parse the XML end-to-end
 - `/mql5-walkforward`         — IS/OOS Sharpe correlation (takes 2 positional XML reports)
 - `/mql5-monte-carlo`         — bootstrap DD from returns CSV (positional `returns_csv --reported-dd ...`)
 - `/mql5-overfit-check`       — OOS/IS Sharpe sanity (takes 2 positional XML reports)

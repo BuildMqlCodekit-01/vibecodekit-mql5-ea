@@ -1,13 +1,13 @@
 # vibecodekit-mql5-ea
 
 [![version](https://img.shields.io/badge/version-v1.0.1-blue)](https://github.com/BuildMqlCodekit-01/vibecodekit-mql5-ea/releases/tag/v1.0.1)
-[![tests](https://img.shields.io/badge/tests-306%20passing-success)]()
+[![tests](https://img.shields.io/badge/tests-322%20passing-success)]()
 [![lint](https://img.shields.io/badge/ruff-clean-success)]()
 [![license](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 > **Vibecode methodology kit** for building production-grade MQL5 Expert
-> Advisors on MetaTrader 5. Forty-three CLI commands, three MCP servers,
-> twenty-eight reference cheatsheets, twenty-two anti-pattern detectors,
+> Advisors on MetaTrader 5. Forty-six CLI commands, three MCP servers,
+> twenty-nine reference cheatsheets, twenty-two anti-pattern detectors,
 > and one fully worked 4-hour wizard-composable portfolio EA — all
 > delivered as a flat, router-free, fail-fast toolkit.
 
@@ -21,7 +21,7 @@
 
 | Layer | Shipped |
 |-------|---------|
-| **Commands** | 43 (`/mql5-{scan,survey,doctor,audit,rri,vision,blueprint,tip,build,wizard,pip-normalize,async-build,onnx-export,onnx-embed,llm-context,forge-init,compile,lint,method-hiding-check,backtest,walkforward,monte-carlo,overfit-check,multibroker,fitness,mfe-mae,rri-bt,rri-rr,rri-chart,review,eng-review,ceo-review,cso,investigate,deploy-vps,cloud-optimize,canary,forge-pr,ship,refine,broker-safety,trader-check,install}`) |
+| **Commands** | 46 (`/mql5-{scan,survey,doctor,audit,rri,vision,blueprint,tip,build,wizard,pip-normalize,async-build,onnx-export,onnx-embed,llm-context,forge-init,compile,lint,method-hiding-check,backtest,tester-run,walkforward,monte-carlo,overfit-check,multibroker,fitness,mfe-mae,rri-bt,rri-rr,rri-chart,review,eng-review,ceo-review,cso,investigate,deploy-vps,cloud-optimize,canary,forge-pr,ship,refine,broker-safety,trader-check,install,second-opinion}`) |
 | **MCP servers** | 3 (`metaeditor-bridge`, `mt5-bridge` READ-ONLY[^1], `algo-forge-bridge`) |
 | **Reference docs** | 29 (`docs/references/50-survey.md` → `80-input-syntax.md`) |
 | **Scaffolds** | 22 archetypes × broker variants (`scaffolds/trend/netting`, `scalping/hedging`, `hft-async/netting`, `service-llm-bridge/{cloud-api,self-hosted-ollama,embedded-onnx-llm}`, `ml-onnx/python-bridge`, …) |
@@ -31,7 +31,7 @@
 | **Mode-aware orchestrator** | PERSONAL (layers 1/2/3/4/7) · TEAM (1-5,7) · ENTERPRISE (1-7) |
 | **Trader checklist** | 17 items (`trader-check`) with 15/17 PASS threshold |
 | **Worked example** | `examples/ea-wizard-macd-sar-eurusd-h1-portfolio/` — 4-hour enterprise turnaround |
-| **Test gate** | 306 tests passing across Phase 0/A/B/C/D/E |
+| **Test gate** | 322 tests passing across Phase 0/A/B/C/D/E |
 
 [^1]: `mt5-bridge` requires the `MetaTrader5` Python package, which only
     installs on Windows or Wine MT5 desktop. On a Linux Devin VM without
@@ -71,7 +71,7 @@ Detailed walk-throughs:
 | B | `v0.2.0` | Test & validation | Strategy Tester driver, walk-forward, Monte-Carlo, multi-broker, Trader-17 checklist |
 | C | `v0.3.0` | Methodology | 6 RRI personas × 25 q × 3 modes, 8-step workflow, 64-cell quality matrix, 7-layer permission orchestrator |
 | D | `v0.5.0` | Tech 2024-2025 | ONNX runtime 1.14 export/embed, HFT async (`OrderSendAsync` + `OnTradeTransaction`), Algo Forge, LLM bridge (3 patterns), Cloud Network optimize, method-hiding linter |
-| **E** | **`v1.0.1`** | **Polish & ship** | **28 reference docs, 3 MCP servers, `/mql5-canary`, 4-hour worked example, full `[project.scripts]` entry-point coverage** |
+| **E** | **`v1.0.1`** | **Polish & ship** | **29 reference docs, 3 MCP servers, `/mql5-canary` + `/mql5-tester-run`, 4-hour worked example, full `[project.scripts]` entry-point coverage** |
 
 ### Anti-patterns this kit refuses to ship
 
@@ -102,7 +102,7 @@ hot-spots:
 
 | Thành phần | Đã giao |
 |-----------|---------|
-| **Lệnh CLI** | 43 lệnh — đầy đủ chu trình `scan → plan → build → verify → review → deploy → ship` |
+| **Lệnh CLI** | 46 lệnh — đầy đủ chu trình `scan → plan → build → verify → review → deploy → ship` |
 | **MCP server** | 3 (`metaeditor-bridge`, `mt5-bridge` chỉ-đọc[^2], `algo-forge-bridge`) — chuẩn MCP JSON-RPC 2.0 over stdio |
 | **Tài liệu tham khảo** | 29 cheatsheet (`docs/references/50-survey.md` → `80-input-syntax.md`) |
 | **Scaffold** | 22 archetype × biến thể tài khoản (`trend/netting`, `scalping/hedging`, `hft-async/netting`, 3 biến thể LLM bridge, ml-onnx, …) |
