@@ -29,8 +29,9 @@ def test_reference_has_valid_frontmatter(name: str) -> None:
 
 
 def test_reference_count_matches_audit() -> None:
-    # audit-plan-v5 lists 28 references (50-survey through 79-pip-norm).
-    assert len(REFS) == 28, f"expected 28 refs, got {len(REFS)}"
+    # audit-plan-v5 lists 28 references (50-survey through 79-pip-norm);
+    # v1.0.1 build-5320 audit adds ref 80-input-syntax = 29.
+    assert len(REFS) == 29, f"expected 29 refs, got {len(REFS)}"
 
 
 def test_docs_quickstart_and_commands_present() -> None:

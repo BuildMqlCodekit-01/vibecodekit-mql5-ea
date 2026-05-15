@@ -111,6 +111,12 @@ class BacktestResult:
     mfe_correlation: float = 0.0
     mae_correlation: float = 0.0
     broker_digits: int = 0
+    # Build 5260 added a pre-start data-availability check that shifts
+    # FromDate forward when there's no history on the requested day.
+    # When present, ``actual_from_date`` is the post-shift date as
+    # ``YYYY.MM.DD`` and ``prestart_shift_days`` is the gap in days.
+    actual_from_date: str = ""
+    prestart_shift_days: int = 0
     extra: dict = field(default_factory=dict)
 
     def to_dict(self) -> dict:
@@ -197,6 +203,72 @@ def parse_xml_report_file(path: Path) -> BacktestResult:
 
 
 # ─────────────────────────────────────────────────────────────────────────────
+# Tester log parser (build 5260 pre-start shift)
+# ─────────────────────────────────────────────────────────────────────────────
+
+# MetaTester emits one of these lines when it has to shift FromDate
+# forward because the requested day has no history:
+#
+#   2025.07.14 12:00:00.123  start time changed to 2024.01.03
+#   2025.07.14 12:00:00.123  testing start time changed to 2024.01.03
+#   2025.07.14 12:00:00.123  TestGenerator: start time changed to 2024.01.03
+#
+# We tolerate all three.  The kit uses the parsed value as ground
+# truth for the walk-forward window so a silent shift never blows
+# the out-of-sample / in-sample split off by a day.
+_PRESTART_SHIFT_RX = re.compile(
+    r"(?:start\s+time\s+changed\s+to|testing\s+start\s+time\s+changed\s+to)"
+    r"\s+(?P<date>\d{4}\.\d{2}\.\d{2})",
+    re.IGNORECASE,
+)
+
+
+def parse_tester_log(text: str) -> tuple[str, int]:
+    """Return ``(actual_from_date, shift_days)`` from a tester log.
+
+    ``actual_from_date`` is the post-shift date in MT5 ``YYYY.MM.DD``
+    form; empty string means the tester did not shift.
+    ``shift_days`` is 0 when no shift is detected; otherwise the
+    caller's ``requested_from`` (computed elsewhere) plus this delta
+    gives the absolute new date.
+
+    We deliberately do not infer ``shift_days`` from the log itself —
+    the tester only prints the new date, not the gap — so this helper
+    returns the date and the caller is expected to compute the diff
+    against the requested ``FromDate`` (``tester.ini``).
+    """
+    m = _PRESTART_SHIFT_RX.search(text)
+    if not m:
+        return "", 0
+    return m.group("date"), 0
+
+
+def apply_tester_log(
+    result: BacktestResult, log_text: str, requested_from: str = ""
+) -> BacktestResult:
+    """Merge tester-log diagnostics onto an XML-parsed BacktestResult.
+
+    ``requested_from`` should be the FromDate fed into tester.ini
+    (``YYYY.MM.DD``); when supplied we compute ``prestart_shift_days``
+    against the parsed actual date.  Returns the same ``result``
+    instance for chaining.
+    """
+    actual, _ = parse_tester_log(log_text)
+    if not actual:
+        return result
+    result.actual_from_date = actual
+    if requested_from:
+        try:
+            from datetime import datetime
+            req = datetime.strptime(requested_from, "%Y.%m.%d")
+            got = datetime.strptime(actual,         "%Y.%m.%d")
+            result.prestart_shift_days = (got - req).days
+        except ValueError:
+            result.prestart_shift_days = 0
+    return result
+
+
+# ─────────────────────────────────────────────────────────────────────────────
 # CLI
 # ─────────────────────────────────────────────────────────────────────────────
 
@@ -208,10 +280,29 @@ def main(argv: list[str] | None = None) -> int:
     p.add_argument("--period", required=True)
     p.add_argument("--tf", default="H1")
     p.add_argument("--report", default=None, help="parse this existing XML (skip tester)")
+    p.add_argument(
+        "--tester-log", default=None,
+        help=(
+            "optional path to a MetaTester journal/log file; build 5260 "
+            "pre-start shift diagnostics are merged onto the XML result"
+        ),
+    )
+    p.add_argument(
+        "--requested-from", default=None,
+        help=(
+            "FromDate fed to tester.ini in YYYY.MM.DD; used with "
+            "--tester-log to compute prestart_shift_days"
+        ),
+    )
     args = p.parse_args(argv)
 
     if args.report:
         result = parse_xml_report_file(Path(args.report))
+        if args.tester_log:
+            log_text = Path(args.tester_log).read_text(
+                encoding="utf-8", errors="replace"
+            )
+            apply_tester_log(result, log_text, args.requested_from or "")
         print(json.dumps(result.to_dict(), indent=2))
         return 0
     print("[mql5-backtest] running terminal is not implemented in Phase B unit-mode; "

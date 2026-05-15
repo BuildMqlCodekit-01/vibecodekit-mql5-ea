@@ -12,6 +12,14 @@ For unit tests we accept a Python callable producing a numpy array; the
 *real* PyTorch dependency is optional and only loaded when the exporter
 is invoked against a ``.pt`` / ``.pth`` model. This keeps the rest of
 the kit free of a heavy PyTorch import.
+
+Build 5572 (Jan 2026) added ``OnnxSetExecutionProviders`` on the MQL5
+side so the same .onnx model can run on the CPU EP (default), CUDA EP,
+or any other provider the host's ONNX Runtime ships with.  The
+exporter records the *intended* provider list in the JSON report so
+``onnx_embed`` can emit the matching ``COnnxLoader.InitFromResource``
+call without the EA needing to know what hardware the .onnx was
+optimised for.
 """
 
 from __future__ import annotations
@@ -24,6 +32,12 @@ from pathlib import Path
 
 MIN_OPSET = 14
 
+# MQL5 build 5572 ``OnnxSetExecutionProviders`` accepts these provider
+# IDs.  Keep the kit's list deliberately small — it is the set the
+# Plan v5 §13 deploy path supports end-to-end.
+VALID_PROVIDERS: tuple[str, ...] = ("cpu", "cuda")
+DEFAULT_PROVIDERS: tuple[str, ...] = ("cpu",)
+
 
 @dataclass
 class ExportReport:
@@ -32,10 +46,35 @@ class ExportReport:
     opset: int
     input_shapes: list[tuple[int, ...]] = field(default_factory=list)
     output_shapes: list[tuple[int, ...]] = field(default_factory=list)
+    providers: list[str] = field(default_factory=lambda: list(DEFAULT_PROVIDERS))
     error: str = ""
 
     def as_json(self) -> str:
         return json.dumps(self.__dict__, indent=2)
+
+
+def _parse_providers(raw: str) -> list[str]:
+    """Parse a comma-separated provider list.
+
+    Validates against ``VALID_PROVIDERS``; raises ``ValueError`` on any
+    unknown ID so we never silently fall back to CPU when the caller
+    asked for CUDA (a regression that would mask a misconfigured GPU
+    runtime).
+    """
+    items = [p.strip().lower() for p in raw.split(",") if p.strip()]
+    if not items:
+        return list(DEFAULT_PROVIDERS)
+    unknown = [p for p in items if p not in VALID_PROVIDERS]
+    if unknown:
+        raise ValueError(
+            f"unknown ONNX execution provider(s): {unknown}; "
+            f"valid: {list(VALID_PROVIDERS)}"
+        )
+    seen: list[str] = []
+    for p in items:
+        if p not in seen:
+            seen.append(p)
+    return seen
 
 
 def _check_opset(opset: int) -> None:
@@ -50,6 +89,7 @@ def export_torch(
     output: Path,
     opset: int = MIN_OPSET,
     input_shape: tuple[int, ...] = (1, 10),
+    providers: list[str] | None = None,
 ) -> ExportReport:
     """Export a PyTorch ``.pt`` / ``.pth`` model to ONNX.
 
@@ -57,11 +97,13 @@ def export_torch(
     the wrapper without the dependency installed.
     """
     _check_opset(opset)
+    providers = list(providers) if providers else list(DEFAULT_PROVIDERS)
     try:
         import torch  # type: ignore
     except ImportError as exc:
         return ExportReport(
             ok=False, onnx_path=str(output), opset=opset,
+            providers=providers,
             error=f"PyTorch missing: {exc}; install via pip install '.[phase-d]'",
         )
     model = torch.load(str(model_path), map_location="cpu", weights_only=False)
@@ -78,20 +120,25 @@ def export_torch(
         output_names=["output"],
         dynamic_axes={"input": {0: "batch"}, "output": {0: "batch"}},
     )
-    return validate(output)
+    return validate(output, providers=providers)
 
 
-def validate(onnx_path: Path) -> ExportReport:
+def validate(
+    onnx_path: Path, providers: list[str] | None = None
+) -> ExportReport:
+    providers = list(providers) if providers else list(DEFAULT_PROVIDERS)
     try:
         import onnx  # type: ignore
     except ImportError as exc:
         return ExportReport(
             ok=False, onnx_path=str(onnx_path), opset=0,
+            providers=providers,
             error=f"onnx missing: {exc}; install via pip install '.[phase-d]'",
         )
     if not onnx_path.exists():
         return ExportReport(
             ok=False, onnx_path=str(onnx_path), opset=0,
+            providers=providers,
             error=f"file not found: {onnx_path}",
         )
     model = onnx.load(str(onnx_path))
@@ -99,6 +146,7 @@ def validate(onnx_path: Path) -> ExportReport:
     if opset < MIN_OPSET:
         return ExportReport(
             ok=False, onnx_path=str(onnx_path), opset=opset,
+            providers=providers,
             error=f"opset {opset} < required {MIN_OPSET}",
         )
     in_shapes = [
@@ -112,11 +160,13 @@ def validate(onnx_path: Path) -> ExportReport:
     if not in_shapes or not out_shapes:
         return ExportReport(
             ok=False, onnx_path=str(onnx_path), opset=opset,
+            providers=providers,
             error="model has no inputs or no outputs",
         )
     return ExportReport(
         ok=True, onnx_path=str(onnx_path), opset=opset,
         input_shapes=in_shapes, output_shapes=out_shapes,
+        providers=providers,
     )
 
 
@@ -126,17 +176,35 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--output", required=False, help="Output .onnx (required for torch)")
     parser.add_argument("--opset", type=int, default=MIN_OPSET)
     parser.add_argument("--input-shape", default="1,10")
+    parser.add_argument(
+        "--providers",
+        default=",".join(DEFAULT_PROVIDERS),
+        help=(
+            "Comma-separated ONNX execution providers, ordered by "
+            "preference (build 5572+ MQL5: "
+            f"{','.join(VALID_PROVIDERS)}). Default: cpu."
+        ),
+    )
     args = parser.parse_args(argv)
+
+    try:
+        providers = _parse_providers(args.providers)
+    except ValueError as exc:
+        print(f"mql5-onnx-export: {exc}", file=sys.stderr)
+        return 2
 
     model_path = Path(args.model)
     if model_path.suffix == ".onnx":
-        report = validate(model_path)
+        report = validate(model_path, providers=providers)
     else:
         if not args.output:
             print("--output is required when exporting from torch", file=sys.stderr)
             return 2
         shape = tuple(int(x) for x in args.input_shape.split(","))
-        report = export_torch(model_path, Path(args.output), opset=args.opset, input_shape=shape)
+        report = export_torch(
+            model_path, Path(args.output),
+            opset=args.opset, input_shape=shape, providers=providers,
+        )
     print(report.as_json())
     return 0 if report.ok else 1
 
