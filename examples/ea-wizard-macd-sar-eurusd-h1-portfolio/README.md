@@ -41,11 +41,18 @@ Filled `docs/rri-templates/step-3-vision.md.tmpl`:
 
 `docs/rri-templates/step-4-blueprint.md.tmpl` filled:
 
-- **Inputs**: MACD(12,26,9) + SAR(0.02, 0.2).
-- **Sizing**: `CRiskGuard.Lots(_Symbol)` with 0.5% risk-per-trade.
-- **Risk**: 2% daily-loss cap + 1 max-position.
-- **Guard**: `CSpreadGuard` 30-point cap.
-- **Observability**: `CMfeMaeLogger` per trade.
+- **Signal**: MACD(12,26,9) + SAR(0.02, 0.2) — fixed at vetted values,
+  not exposed to the optimiser (AP-5 cap = 6 inputs total).
+- **Inputs (6)**: `InpMagic`, `InpRiskPerTradePct`, `InpDailyLossPct`,
+  `InpMaxPositions`, `InpMaxSpreadPips`, `InpSlPips`.
+- **Sizing**: `CPipNormalizer.LotForRisk(risk_money, InpSlPips)` with
+  0.5% risk-per-trade.
+- **Risk**: 2% daily-loss cap + 1 max-position + 5% drawdown freeze.
+- **Guard**: `CSpreadGuard` 3-pip cap.
+- **Session filter**: weekend gap + NFP window (first-Fri 13:30–14:30).
+- **Stop-loss**: 40-pip protective stop on every entry (AP-1).
+- **Observability**: `CMfeMaeLogger` per trade + `PrintFormat` on
+  every entry (Trader-17 `journal_observable`).
 
 ## Step 5 — TIP
 
@@ -63,12 +70,14 @@ Filled `docs/rri-templates/step-3-vision.md.tmpl`:
 ## Step 6 — BUILD
 
 ```
-$ python -m vibecodekit_mql5.build \
-    --scaffold wizard-composable --mode netting \
-    --name MacdSarEurUsdH1 --magic 5001 --symbol EURUSD
+$ python -m vibecodekit_mql5.build wizard-composable \
+    --stack netting --name MacdSarEurUsdH1 \
+    --symbol EURUSD --tf H1
 ```
 
-Generates `EAName.mq5` (see this directory).  Time: 5 minutes.
+Generates `EAName.mq5` (see this directory).  Magic number is derived
+deterministically from `--name` (see `build._magic_for`).  Time: 5
+minutes.
 
 ## Step 7 — VERIFY (multi-stage 9 commands)
 
@@ -91,7 +100,7 @@ walk-forward + Monte Carlo).
 
 ```
 $ python -m vibecodekit_mql5.refine --diff <(git diff main..HEAD)
-$ python -m vibecodekit_mql5.ship --tag v1.0.0
+$ python -m vibecodekit_mql5.ship --tag v1.0.1
 ```
 
 `refine` classifies the diff as `patch` (logic-bounded change to one
