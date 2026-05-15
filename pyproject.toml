@@ -40,8 +40,9 @@ mql5-rri = "vibecodekit_mql5.rri:main"
 mql5-vision = "vibecodekit_mql5.vision:main"
 mql5-blueprint = "vibecodekit_mql5.blueprint:main"
 mql5-tip = "vibecodekit_mql5.tip:main"
-# Build (8)
+# Build (9)
 mql5-build = "vibecodekit_mql5.build:main"
+mql5-auto-build = "vibecodekit_mql5.auto_build:main"
 mql5-wizard = "vibecodekit_mql5.wizard:main"
 mql5-pip-normalize = "vibecodekit_mql5.pip_normalize:main"
 mql5-async-build = "vibecodekit_mql5.async_build:main"
