@@ -46,14 +46,17 @@ def install(target: Path, source: Path = REPO_ROOT) -> InstallReport:
             rel = src.relative_to(source)
             dst = target / rel
             dst.parent.mkdir(parents=True, exist_ok=True)
+            # Use POSIX-style separators in the report so JSON output and
+            # downstream string matches are platform-stable (Windows would
+            # otherwise emit `Include\\CPipNormalizer.mqh`).
             if dst.exists():
                 tmpl = dst.with_suffix(dst.suffix + ".kit-template")
                 shutil.copyfile(src, tmpl)
-                rep.templates.append(str(tmpl.relative_to(target)))
-                rep.skipped.append(str(rel))
+                rep.templates.append(tmpl.relative_to(target).as_posix())
+                rep.skipped.append(rel.as_posix())
             else:
                 shutil.copyfile(src, dst)
-                rep.written.append(str(rel))
+                rep.written.append(rel.as_posix())
     return rep
 
 
