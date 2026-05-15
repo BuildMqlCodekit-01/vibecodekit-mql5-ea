@@ -1,7 +1,7 @@
 # vibecodekit-mql5-ea
 
 [![version](https://img.shields.io/badge/version-v1.0.1-blue)](https://github.com/BuildMqlCodekit-01/vibecodekit-mql5-ea/releases/tag/v1.0.1)
-[![tests](https://img.shields.io/badge/tests-260%20passing-success)]()
+[![tests](https://img.shields.io/badge/tests-306%20passing-success)]()
 [![lint](https://img.shields.io/badge/ruff-clean-success)]()
 [![license](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
@@ -22,8 +22,8 @@
 | Layer | Shipped |
 |-------|---------|
 | **Commands** | 43 (`/mql5-{scan,survey,doctor,audit,rri,vision,blueprint,tip,build,wizard,pip-normalize,async-build,onnx-export,onnx-embed,llm-context,forge-init,compile,lint,method-hiding-check,backtest,walkforward,monte-carlo,overfit-check,multibroker,fitness,mfe-mae,rri-bt,rri-rr,rri-chart,review,eng-review,ceo-review,cso,investigate,deploy-vps,cloud-optimize,canary,forge-pr,ship,refine,broker-safety,trader-check,install}`) |
-| **MCP servers** | 3 (`metaeditor-bridge`, `mt5-bridge` READ-ONLY, `algo-forge-bridge`) |
-| **Reference docs** | 28 (`docs/references/50-survey.md` → `79-pip-norm.md`) |
+| **MCP servers** | 3 (`metaeditor-bridge`, `mt5-bridge` READ-ONLY[^1], `algo-forge-bridge`) |
+| **Reference docs** | 29 (`docs/references/50-survey.md` → `80-input-syntax.md`) |
 | **Scaffolds** | 22 archetypes × broker variants (`scaffolds/trend/netting`, `scalping/hedging`, `hft-async/netting`, `service-llm-bridge/{cloud-api,self-hosted-ollama,embedded-onnx-llm}`, `ml-onnx/python-bridge`, …) |
 | **Anti-pattern detectors** | 22 (8 critical `ERROR` + 13 best-practice `WARN` + 1 build-aware method-hiding) |
 | **Quality matrix** | 8 dimensions × 8 axes = 64-cell HTML report (PASS / WARN / FAIL / N/A) |
@@ -31,7 +31,16 @@
 | **Mode-aware orchestrator** | PERSONAL (layers 1/2/3/4/7) · TEAM (1-5,7) · ENTERPRISE (1-7) |
 | **Trader checklist** | 17 items (`trader-check`) with 15/17 PASS threshold |
 | **Worked example** | `examples/ea-wizard-macd-sar-eurusd-h1-portfolio/` — 4-hour enterprise turnaround |
-| **Test gate** | 260 tests passing across Phase 0/A/B/C/D/E |
+| **Test gate** | 306 tests passing across Phase 0/A/B/C/D/E |
+
+[^1]: `mt5-bridge` requires the `MetaTrader5` Python package, which only
+    installs on Windows or Wine MT5 desktop. On a Linux Devin VM without
+    the broker terminal the import fails and every tool returns a
+    deterministic **stub payload** (empty symbol list, zero bars, `build:
+    0`). Stubs keep the MCP contract testable hermetically but never feed
+    them into live broker-safety analysis. See
+    [docs/USAGE-en.md §MCP servers](docs/USAGE-en.md#mcp-servers) for the
+    full platform matrix.
 
 ### Quick start (5 minutes)
 
@@ -94,8 +103,8 @@ hot-spots:
 | Thành phần | Đã giao |
 |-----------|---------|
 | **Lệnh CLI** | 43 lệnh — đầy đủ chu trình `scan → plan → build → verify → review → deploy → ship` |
-| **MCP server** | 3 (`metaeditor-bridge`, `mt5-bridge` chỉ-đọc, `algo-forge-bridge`) — chuẩn MCP JSON-RPC 2.0 over stdio |
-| **Tài liệu tham khảo** | 28 cheatsheet (`docs/references/50-survey.md` → `79-pip-norm.md`) |
+| **MCP server** | 3 (`metaeditor-bridge`, `mt5-bridge` chỉ-đọc[^2], `algo-forge-bridge`) — chuẩn MCP JSON-RPC 2.0 over stdio |
+| **Tài liệu tham khảo** | 29 cheatsheet (`docs/references/50-survey.md` → `80-input-syntax.md`) |
 | **Scaffold** | 22 archetype × biến thể tài khoản (`trend/netting`, `scalping/hedging`, `hft-async/netting`, 3 biến thể LLM bridge, ml-onnx, …) |
 | **Bộ dò chống mẫu xấu** | 22 detector (8 lỗi nghiêm trọng `ERROR` + 13 best-practice `WARN` + 1 method-hiding theo build) |
 | **Ma trận chất lượng** | 8 chiều × 8 trục = 64 ô HTML (PASS / WARN / FAIL / N/A) |
@@ -103,7 +112,15 @@ hot-spots:
 | **Mode orchestrator** | PERSONAL (lớp 1/2/3/4/7) · TEAM (1-5, 7) · ENTERPRISE (1-7) |
 | **Trader checklist** | 17 mục (`trader-check`), ngưỡng pass 15/17 |
 | **Ví dụ hoàn chỉnh** | `examples/ea-wizard-macd-sar-eurusd-h1-portfolio/` — turnaround 4 tiếng ở chế độ enterprise |
-| **Test gate** | 260 test pass qua Phase 0/A/B/C/D/E |
+| **Test gate** | 306 test pass qua Phase 0/A/B/C/D/E |
+
+[^2]: `mt5-bridge` cần package `MetaTrader5` Python — chỉ cài được trên
+    Windows hoặc Wine MT5 desktop. Trên Linux Devin VM, import fail và
+    mọi tool trả **stub payload** cố định (symbol list rỗng, 0 bar,
+    `build: 0`). Stub giữ MCP contract test hermetic được nhưng tuyệt
+    đối không feed vào broker-safety phân tích thật. Xem
+    [docs/USAGE-vi.md §MCP server](docs/USAGE-vi.md#mcp-server) cho ma
+    trận platform chi tiết.
 
 ### Bắt đầu nhanh (5 phút)
 
