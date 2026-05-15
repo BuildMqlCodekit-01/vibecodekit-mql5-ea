@@ -1,13 +1,13 @@
 # vibecodekit-mql5-ea
 
 [![version](https://img.shields.io/badge/version-v1.0.1-blue)](https://github.com/BuildMqlCodekit-01/vibecodekit-mql5-ea/releases/tag/v1.0.1)
-[![tests](https://img.shields.io/badge/tests-322%20passing-success)]()
+[![tests](https://img.shields.io/badge/tests-338%20passing-success)]()
 [![lint](https://img.shields.io/badge/ruff-clean-success)]()
 [![license](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 > **Vibecode methodology kit** for building production-grade MQL5 Expert
 > Advisors on MetaTrader 5. Forty-six CLI commands, three MCP servers,
-> twenty-nine reference cheatsheets, twenty-two anti-pattern detectors,
+> twenty-nine reference cheatsheets, twenty-three anti-pattern detectors,
 > and one fully worked 4-hour wizard-composable portfolio EA — all
 > delivered as a flat, router-free, fail-fast toolkit.
 
@@ -25,13 +25,13 @@
 | **MCP servers** | 3 (`metaeditor-bridge`, `mt5-bridge` READ-ONLY[^1], `algo-forge-bridge`) |
 | **Reference docs** | 29 (`docs/references/50-survey.md` → `80-input-syntax.md`) |
 | **Scaffolds** | 22 archetypes × broker variants (`scaffolds/trend/netting`, `scalping/hedging`, `hft-async/netting`, `service-llm-bridge/{cloud-api,self-hosted-ollama,embedded-onnx-llm}`, `ml-onnx/python-bridge`, …) |
-| **Anti-pattern detectors** | 22 (8 critical `ERROR` + 13 best-practice `WARN` + 1 build-aware method-hiding) |
+| **Anti-pattern detectors** | 23 (8 critical `ERROR` + 14 best-practice `WARN` + 1 build-aware method-hiding) |
 | **Quality matrix** | 8 dimensions × 8 axes = 64-cell HTML report (PASS / WARN / FAIL / N/A) |
 | **Permission layers** | 7 (source-lint → compile → AP-lint → checklist → methodology → quality-matrix → broker-safety) |
 | **Mode-aware orchestrator** | PERSONAL (layers 1/2/3/4/7) · TEAM (1-5,7) · ENTERPRISE (1-7) |
 | **Trader checklist** | 17 items (`trader-check`) with 15/17 PASS threshold |
 | **Worked example** | `examples/ea-wizard-macd-sar-eurusd-h1-portfolio/` — 4-hour enterprise turnaround |
-| **Test gate** | 322 tests passing across Phase 0/A/B/C/D/E |
+| **Test gate** | 338 tests passing across Phase 0/A/B/C/D/E |
 
 [^1]: `mt5-bridge` requires the `MetaTrader5` Python package, which only
     installs on Windows or Wine MT5 desktop. On a Linux Devin VM without
@@ -106,13 +106,13 @@ hot-spots:
 | **MCP server** | 3 (`metaeditor-bridge`, `mt5-bridge` chỉ-đọc[^2], `algo-forge-bridge`) — chuẩn MCP JSON-RPC 2.0 over stdio |
 | **Tài liệu tham khảo** | 29 cheatsheet (`docs/references/50-survey.md` → `80-input-syntax.md`) |
 | **Scaffold** | 22 archetype × biến thể tài khoản (`trend/netting`, `scalping/hedging`, `hft-async/netting`, 3 biến thể LLM bridge, ml-onnx, …) |
-| **Bộ dò chống mẫu xấu** | 22 detector (8 lỗi nghiêm trọng `ERROR` + 13 best-practice `WARN` + 1 method-hiding theo build) |
+| **Bộ dò chống mẫu xấu** | 23 detector (8 lỗi nghiêm trọng `ERROR` + 14 best-practice `WARN` + 1 method-hiding theo build) |
 | **Ma trận chất lượng** | 8 chiều × 8 trục = 64 ô HTML (PASS / WARN / FAIL / N/A) |
 | **Lớp permission** | 7 lớp (source-lint → compile → AP-lint → checklist → methodology → quality-matrix → broker-safety) |
 | **Mode orchestrator** | PERSONAL (lớp 1/2/3/4/7) · TEAM (1-5, 7) · ENTERPRISE (1-7) |
 | **Trader checklist** | 17 mục (`trader-check`), ngưỡng pass 15/17 |
 | **Ví dụ hoàn chỉnh** | `examples/ea-wizard-macd-sar-eurusd-h1-portfolio/` — turnaround 4 tiếng ở chế độ enterprise |
-| **Test gate** | 306 test pass qua Phase 0/A/B/C/D/E |
+| **Test gate** | 338 test pass qua Phase 0/A/B/C/D/E |
 
 [^2]: `mt5-bridge` cần package `MetaTrader5` Python — chỉ cài được trên
     Windows hoặc Wine MT5 desktop. Trên Linux Devin VM, import fail và

@@ -16,9 +16,10 @@ def _findings_for(src: str, code: str) -> list:
 def test_best_practice_detectors_are_all_wired():
     codes = {c for c, _ in lint_best_practice.BEST_PRACTICE_DETECTORS}
     expected = {"AP-2", "AP-4", "AP-6", "AP-7", "AP-8", "AP-9", "AP-10",
-                "AP-11", "AP-12", "AP-13", "AP-14", "AP-16", "AP-19"}
+                "AP-11", "AP-12", "AP-13", "AP-14", "AP-16", "AP-19",
+                "AP-22"}
     assert codes == expected
-    assert len(codes) == 13
+    assert len(codes) == 14
 
 
 def test_ap2_flags_tight_stoploss():
@@ -82,8 +83,61 @@ def test_ap16_flags_custom_trade_class():
     assert len(findings) == 1
 
 
+def test_ap22_flags_placeholder_ontick():
+    """OnTick that never reaches an order-placing call must WARN AP-22."""
+    src = (
+        "// digits-tested: 5,3\n"
+        "void OnTick(void)\n"
+        "  {\n"
+        "   // signal logic to be filled in\n"
+        "  }\n"
+    )
+    findings = _findings_for(src, "AP-22")
+    assert len(findings) == 1
+    assert findings[0].severity == "WARN"
+
+
+def test_ap22_clean_when_ontick_places_trade():
+    """OnTick that calls trade.Buy / trade.Sell must NOT trigger AP-22."""
+    src = (
+        "// digits-tested: 5,3\n"
+        "#include <Trade/Trade.mqh>\n"
+        "CTrade trade;\n"
+        "void OnTick(void)\n"
+        "  {\n"
+        "   trade.Buy(0.01, NULL, 0.0, 1.0, 0.0);\n"
+        "  }\n"
+    )
+    findings = _findings_for(src, "AP-22")
+    assert findings == []
+
+
+def test_ap22_clean_when_ontick_places_async():
+    """OnTick that calls SendBuyAsync / OrderSendAsync must NOT trigger AP-22."""
+    src = (
+        "// digits-tested: 5,3\n"
+        'void OnTick(void)\n'
+        '  {\n'
+        '   async_tm.SendBuyAsync(_Symbol, 0.01, 0.0, 0.0);\n'
+        '  }\n'
+    )
+    findings = _findings_for(src, "AP-22")
+    assert findings == []
+
+
+def test_ap22_skips_service_programs():
+    """`#property service` programs use OnStart, not OnTick — out of scope."""
+    src = (
+        "// digits-tested: 5,3\n"
+        "#property service\n"
+        "void OnStart(void) {}\n"
+    )
+    findings = _findings_for(src, "AP-22")
+    assert findings == []
+
+
 def test_best_practice_findings_are_warn_only():
-    """The 13 best-practice detectors must never emit ERROR — they are
+    """The 14 best-practice detectors must never emit ERROR — they are
     advisory and Plan v5 §7 mandates they do NOT gate ship."""
     src = (
         "// digits-tested: 5,3\n"

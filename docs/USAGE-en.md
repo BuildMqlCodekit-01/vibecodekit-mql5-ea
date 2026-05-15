@@ -20,7 +20,7 @@ Suitable for both new users and dev teams.
 3. [Commands by stage](#3-commands-by-stage)
 4. [End-to-end example: MACD+SAR EURUSD H1](#4-end-to-end-example)
 5. [Integrating the 3 MCP servers](#5-integrating-the-3-mcp-servers)
-6. [22 anti-pattern detectors](#6-22-anti-pattern-detectors)
+6. [23 anti-pattern detectors](#6-23-anti-pattern-detectors)
 7. [Troubleshooting](#7-troubleshooting)
 
 ---
@@ -373,7 +373,7 @@ for Claude Desktop, Cursor, Codex, and Devin.
 
 ---
 
-## 6. 22 anti-pattern detectors
+## 6. 23 anti-pattern detectors
 
 Lint is split across two tiers:
 
@@ -390,7 +390,7 @@ Lint is split across two tiers:
 | AP-20 | Hard-coded pip (`* 0.0001`, `* _Point`) | `lint.py` |
 | AP-21 | JPY/XAU digits broken | `lint.py` |
 
-### 6.2. Best-practice APs — WARN (13)
+### 6.2. Best-practice APs — WARN (14)
 
 | ID | Description | Detector |
 |----|-------------|----------|
@@ -407,6 +407,7 @@ Lint is split across two tiers:
 | AP-14 | No MFE/MAE logging | `lint_best_practice.py` |
 | AP-16 | Reinvent stdlib | `lint_best_practice.py` |
 | AP-19 | ONNX without Strategy-Tester validation | `lint_best_practice.py` |
+| AP-22 | `OnTick` reaches no order-placing call (placeholder signal) | `lint_best_practice.py` |
 
 ### 6.3. Method-hiding (1, build-aware)
 

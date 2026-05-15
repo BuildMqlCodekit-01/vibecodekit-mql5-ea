@@ -5,7 +5,10 @@
 //| Symbol:    {{SYMBOL}}                                              |
 //| Timeframe: {{TF}}                                                  |
 //|                                                                   |
-//| Mean-reversion: Bollinger Band fade with pip-normalized SL.
+//| Mean-reversion EA: RSI band fade with CPipNormalizer risk-money    |
+//| lot sizing and same-bar guard. The signal logic ships ready-to-run;|
+//| replace IsBuySignal() / IsSellSignal() with your edge once the     |
+//| infrastructure is validated on demo.                              |
 //|                                                                   |
 //| digits-tested: 5, 3                                                |
 //+------------------------------------------------------------------+
@@ -13,6 +16,7 @@
 #property version   "1.00"
 #property strict
 
+#include <Trade/Trade.mqh>
 #include "CPipNormalizer.mqh"
 #include "CRiskGuard.mqh"
 #include "CMagicRegistry.mqh"
@@ -24,9 +28,16 @@ input int    InpTpPips       = 60;
 input double InpDailyLossPct = 0.05;
 input int    InpMaxPositions = 3;
 
+sinput int    InpRsiPeriod     = 14;
+sinput double InpRsiOversold   = 30.0;
+sinput double InpRsiOverbought = 70.0;
+
 CPipNormalizer pip;
 CRiskGuard     risk;
 CMagicRegistry registry;
+CTrade         trade;
+
+int h_rsi = INVALID_HANDLE;
 
 int OnInit(void)
   {
@@ -34,14 +45,55 @@ int OnInit(void)
    risk.Init(InpDailyLossPct, InpMaxPositions, 0.10);
    if(!registry.Check(InpMagic))
       registry.Reserve(InpMagic, "{{NAME}}");
+   trade.SetExpertMagicNumber((ulong)InpMagic);
+   h_rsi = iRSI(_Symbol, _Period, InpRsiPeriod, PRICE_CLOSE);
+   if(h_rsi == INVALID_HANDLE) return INIT_FAILED;
    Print("{{NAME}} initialized: symbol=", _Symbol, " pip=", pip.Pip());
    return INIT_SUCCEEDED;
   }
 
-void OnDeinit(const int reason) {}
+void OnDeinit(const int reason)
+  {
+   if(h_rsi != INVALID_HANDLE) IndicatorRelease(h_rsi);
+  }
+
+// Starter signal: RSI bands. Long when RSI dips below oversold, short
+// when it pops above overbought. Replace with your edge.
+bool IsBuySignal(const double &rsi[])  { return rsi[0] < InpRsiOversold; }
+bool IsSellSignal(const double &rsi[]) { return rsi[0] > InpRsiOverbought; }
 
 void OnTick(void)
   {
-   // BB(20, 2.0) middle-band reversion.
-   /* signal logic */
+   risk.OnTick();
+
+   static int last_bar = 0;
+   int bars = Bars(_Symbol, _Period);
+   if(bars == last_bar) return;
+   last_bar = bars;
+
+   if(!risk.CanOpenNewPosition()) return;
+
+   double rsi[1];
+   if(CopyBuffer(h_rsi, 0, 0, 1, rsi) != 1) return;
+
+   double lots = pip.LotForRisk(InpRiskMoney, InpSlPips);
+   if(lots <= 0.0) return;
+
+   double sl_dist = pip.Pips(InpSlPips);
+   double tp_dist = pip.Pips(InpTpPips);
+   double ask     = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double bid     = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+
+   if(IsBuySignal(rsi))
+     {
+      double sl = ask - sl_dist;
+      double tp = ask + tp_dist;
+      trade.Buy(lots, _Symbol, 0.0, sl, tp);
+     }
+   else if(IsSellSignal(rsi))
+     {
+      double sl = bid + sl_dist;
+      double tp = bid - tp_dist;
+      trade.Sell(lots, _Symbol, 0.0, sl, tp);
+     }
   }
