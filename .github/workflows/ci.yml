@@ -2,9 +2,9 @@ name: CI
 
 on:
   push:
-    branches: [main]
+    branches: [main, devin/phase-0-bootstrap]
   pull_request:
-    branches: [main]
+    branches: [main, devin/phase-0-bootstrap]
 
 jobs:
   # ──────────────────────────────────────────────────────────
