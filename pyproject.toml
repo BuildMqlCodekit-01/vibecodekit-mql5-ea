@@ -30,14 +30,61 @@ phase-d = [
 ]
 
 [project.scripts]
-# Phase A scripts
+# Discovery (4)
+mql5-scan = "vibecodekit_mql5.scan:main"
+mql5-survey = "vibecodekit_mql5.survey:main"
+mql5-doctor = "vibecodekit_mql5.doctor:main"
+mql5-audit = "vibecodekit_mql5.audit:main"
+# Plan (4)
+mql5-rri = "vibecodekit_mql5.rri:main"
+mql5-vision = "vibecodekit_mql5.vision:main"
+mql5-blueprint = "vibecodekit_mql5.blueprint:main"
+mql5-tip = "vibecodekit_mql5.tip:main"
+# Build (8)
 mql5-build = "vibecodekit_mql5.build:main"
-mql5-lint = "vibecodekit_mql5.lint:main"
-mql5-compile = "vibecodekit_mql5.compile:main"
+mql5-wizard = "vibecodekit_mql5.wizard:main"
 mql5-pip-normalize = "vibecodekit_mql5.pip_normalize:main"
-# Phase B scripts (added in Phase B)
-# mql5-backtest = "vibecodekit_mql5.backtest:main"
-# ... etc
+mql5-async-build = "vibecodekit_mql5.async_build:main"
+mql5-onnx-export = "vibecodekit_mql5.onnx_export:main"
+mql5-onnx-embed = "vibecodekit_mql5.onnx_embed:main"
+mql5-llm-context = "vibecodekit_mql5.llm_context:main"
+mql5-forge-init = "vibecodekit_mql5.forge_init:main"
+# Verify (10)
+mql5-compile = "vibecodekit_mql5.compile:main"
+mql5-lint = "vibecodekit_mql5.lint:main"
+mql5-method-hiding-check = "vibecodekit_mql5.method_hiding_check:main"
+mql5-backtest = "vibecodekit_mql5.backtest:main"
+mql5-walkforward = "vibecodekit_mql5.walkforward:main"
+mql5-monte-carlo = "vibecodekit_mql5.monte_carlo:main"
+mql5-overfit-check = "vibecodekit_mql5.overfit_check:main"
+mql5-multibroker = "vibecodekit_mql5.multibroker:main"
+mql5-fitness = "vibecodekit_mql5.fitness:main"
+mql5-mfe-mae = "vibecodekit_mql5.mfe_mae:main"
+# RRI methodology (3)
+mql5-rri-bt = "vibecodekit_mql5.rri.rri_bt:main"
+mql5-rri-rr = "vibecodekit_mql5.rri.rri_rr:main"
+mql5-rri-chart = "vibecodekit_mql5.rri.rri_chart:main"
+# Review (5)
+mql5-review = "vibecodekit_mql5.review.review:main"
+mql5-eng-review = "vibecodekit_mql5.review.eng_review:main"
+mql5-ceo-review = "vibecodekit_mql5.review.ceo_review:main"
+mql5-cso = "vibecodekit_mql5.review.cso:main"
+mql5-investigate = "vibecodekit_mql5.review.investigate:main"
+# Deploy (3)
+mql5-deploy-vps = "vibecodekit_mql5.deploy_vps:main"
+mql5-cloud-optimize = "vibecodekit_mql5.cloud_optimize:main"
+mql5-canary = "vibecodekit_mql5.canary:main"
+# Ship (3)
+mql5-forge-pr = "vibecodekit_mql5.forge_pr:main"
+mql5-ship = "vibecodekit_mql5.ship:main"
+mql5-refine = "vibecodekit_mql5.refine:main"
+# Other (4)
+mql5-broker-safety = "vibecodekit_mql5.broker_safety:main"
+mql5-trader-check = "vibecodekit_mql5.trader_check:main"
+mql5-install = "vibecodekit_mql5.install:main"
+mql5-second-opinion = "vibecodekit_mql5.second_opinion:main"
+# Permission orchestrator
+mql5-permission = "vibecodekit_mql5.permission.orchestrator:main"
 
 [tool.setuptools.packages.find]
 where = ["scripts"]

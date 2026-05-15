@@ -30,11 +30,14 @@ fails, re-run `setup-wine-metaeditor.sh`.
 ## 3. Build your first EA
 
 ```bash
-python -m vibecodekit_mql5.build \
-    --scaffold stdlib --mode netting --name FirstEA --magic 1001 --symbol EURUSD
+python -m vibecodekit_mql5.build stdlib \
+    --name FirstEA --symbol EURUSD --tf H1
 ```
 
-Generates `FirstEA.mq5` from the `stdlib/netting` scaffold.
+Generates `FirstEA.mq5` from the `stdlib/netting` scaffold (the default
+stack for `stdlib`). Pass `--stack hedging` or `--stack python-bridge`
+to pick another stack. Magic number is derived deterministically from
+`--name` (see `build._magic_for`); no `--magic` flag is needed.
 
 ## 4. Lint + compile
 
