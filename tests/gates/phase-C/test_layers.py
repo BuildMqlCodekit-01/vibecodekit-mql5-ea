@@ -62,6 +62,26 @@ def test_layer2_compile_fails_with_errors(tmp_path):
     assert "'foo' undeclared" in result["errors"]
 
 
+def test_layer2_compile_handles_compileresult_dataclass(tmp_path, monkeypatch):
+    # Regression: `compile_mq5` returns a CompileResult dataclass, not a dict.
+    # Layer 2 previously called `.get(...)` on it and crashed with AttributeError
+    # whenever the orchestrator ran without a --compile-log (e.g. Wine missing).
+    from vibecodekit_mql5 import compile as compile_mod
+
+    def _fake_compile(_path, **_kwargs):
+        return compile_mod.CompileResult(
+            success=False,
+            errors=["MetaEditor not invocable"],
+            warnings=[],
+        )
+
+    monkeypatch.setattr(compile_mod, "compile_mq5", _fake_compile)
+    result = layer2_compile.gate(tmp_path / "foo.mq5", log_json=None)
+    assert result["ok"] is False
+    assert "MetaEditor not invocable" in result["errors"]
+    assert result["warnings"] == []
+
+
 # ─── Layer 3 ─────────────────────────────────────────────────────────────────
 
 def test_layer3_ap_lint_blocks_on_critical_ap1(tmp_path):
