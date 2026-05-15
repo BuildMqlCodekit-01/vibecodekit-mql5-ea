@@ -140,14 +140,25 @@ handoff_prefix_to_caller() {
 }
 
 handoff_venv_to_caller() {
-    # When this script created `.venv` under sudo, the directory tree is
-    # root-owned. Subsequent CI steps that try to recreate the venv (e.g.
-    # `python -m venv .venv` as the runner user) hit `[Errno 13] Permission
-    # denied`. Chown the venv back to the invoking user so they can reuse
-    # or replace it without root.
-    if [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != "root" && -d ".venv" ]]; then
+    # When this script ran `pip install -e ".[dev]"` under sudo, several
+    # build artefacts end up root-owned and break subsequent CI steps that
+    # run as the runner user — `.venv/` and the editable-install
+    # `scripts/*.egg-info/` directories. Chown each back to $SUDO_USER so
+    # a follow-up `python -m venv` / `pip install` can replace them
+    # without `[Errno 13] Permission denied`.
+    if [[ -z "${SUDO_USER:-}" || "$SUDO_USER" == "root" ]]; then
+        return
+    fi
+    if [[ -d ".venv" ]]; then
         log "Chowning .venv to $SUDO_USER..."
         chown -R "$SUDO_USER:$SUDO_USER" .venv
+    fi
+    shopt -s nullglob
+    local egg_dirs=(scripts/*.egg-info)
+    shopt -u nullglob
+    if (( ${#egg_dirs[@]} > 0 )); then
+        log "Chowning ${#egg_dirs[@]} egg-info dir(s) to $SUDO_USER..."
+        chown -R "$SUDO_USER:$SUDO_USER" "${egg_dirs[@]}"
     fi
 }
 
