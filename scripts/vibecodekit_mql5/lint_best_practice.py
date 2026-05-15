@@ -178,6 +178,59 @@ def detect_ap19(path: str, raw: str, src: str) -> list[Finding]:
     return []
 
 
+# ─── AP-22 Signal-placeholder ────────────────────────────────────────────────
+# An EA declares OnTick but the body never reaches any order-placing call.
+# We warn (don't error) because the kit ships several deliberate "infra-only"
+# scaffolds (library / indicator-only / stdlib) and we don't want them to
+# break builds — only to flag them so a downstream operator knows the
+# scaffold still needs a strategy plugged in.
+_ONTICK_HEAD = re.compile(r"\bvoid\s+OnTick\s*\([^)]*\)\s*\{")
+_SEND_CALL = re.compile(
+    r"\b(?:trade\.(?:Buy|Sell)|OrderSendAsync|Send(?:Buy|Sell)Async)\s*\("
+)
+
+
+def _ontick_body(src: str) -> tuple[int, str] | None:
+    """Extract OnTick's body via brace balancing.
+
+    Returns (start_index, body) or ``None``. The header regex finds the
+    opening ``{``; we then scan forward, tracking the depth, until we hit
+    the matching ``}``. A naive ``.*?\\n\\s*\\}`` regex closes on the first
+    inner brace and misclassifies anything with nested ``if`` blocks.
+    """
+    m = _ONTICK_HEAD.search(src)
+    if not m:
+        return None
+    i = m.end()  # one past the opening `{`
+    depth = 1
+    while i < len(src) and depth > 0:
+        c = src[i]
+        if c == "{":
+            depth += 1
+        elif c == "}":
+            depth -= 1
+            if depth == 0:
+                return m.start(), src[m.end(): i]
+        i += 1
+    return None
+
+
+def detect_ap22(path: str, raw: str, src: str) -> list[Finding]:
+    # Service programs use OnStart, not OnTick — they're out of scope.
+    if re.search(r"#\s*property\s+service\b", raw):
+        return []
+    extracted = _ontick_body(src)
+    if extracted is None:
+        return []
+    start, body = extracted
+    if _SEND_CALL.search(body):
+        return []
+    line, col = _line_col(src, start)
+    return [Finding(path, line, col, "WARN", "AP-22",
+                    "OnTick reaches no order-placing call — signal logic is "
+                    "placeholder-only; wire trade.Buy/Sell or *Async before ship")]
+
+
 Detector = Callable[[str, str, str], list[Finding]]
 
 BEST_PRACTICE_DETECTORS: list[tuple[str, Detector]] = [
@@ -194,4 +247,5 @@ BEST_PRACTICE_DETECTORS: list[tuple[str, Detector]] = [
     ("AP-14", detect_ap14),
     ("AP-16", detect_ap16),
     ("AP-19", detect_ap19),
+    ("AP-22", detect_ap22),
 ]

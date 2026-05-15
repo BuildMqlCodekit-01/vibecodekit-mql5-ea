@@ -21,7 +21,7 @@ người mới và dev team.
 3. [Lệnh theo từng giai đoạn](#3-lệnh-theo-từng-giai-đoạn)
 4. [Ví dụ hoàn chỉnh: MACD+SAR EURUSD H1](#4-ví-dụ-hoàn-chỉnh-macdsar-eurusd-h1)
 5. [Tích hợp 3 MCP server](#5-tích-hợp-3-mcp-server)
-6. [22 anti-pattern detector](#6-22-anti-pattern-detector)
+6. [23 anti-pattern detector](#6-23-anti-pattern-detector)
 7. [Troubleshooting](#7-troubleshooting)
 
 ---
@@ -443,7 +443,7 @@ IDE/CLI (Claude Desktop, Cursor, Codex, Devin).
 
 ---
 
-## 6. 22 anti-pattern detector
+## 6. 23 anti-pattern detector
 
 Lint chia 2 cấp:
 
@@ -460,7 +460,7 @@ Lint chia 2 cấp:
 | AP-20 | Hardcode pip (`* 0.0001`, `* _Point`) | `lint.py` |
 | AP-21 | JPY/XAU digits broken (`digits-tested:` < 2 class) | `lint.py` |
 
-### 6.2. Best-practice APs — WARN, không block (13)
+### 6.2. Best-practice APs — WARN, không block (14)
 
 | ID | Mô tả | Detector |
 |----|------|---------|
@@ -477,6 +477,7 @@ Lint chia 2 cấp:
 | AP-14 | Không log MFE/MAE | `lint_best_practice.py` |
 | AP-16 | Reinvent stdlib (tự code thay vì `CTrade`) | `lint_best_practice.py` |
 | AP-19 | ONNX không validate trên Strategy Tester | `lint_best_practice.py` |
+| AP-22 | `OnTick` không đặt lệnh (signal placeholder) | `lint_best_practice.py` |
 
 ### 6.3. Method-hiding (1, build-aware)
 

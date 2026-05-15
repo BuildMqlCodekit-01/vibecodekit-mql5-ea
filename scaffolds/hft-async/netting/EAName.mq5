@@ -8,6 +8,10 @@
 //| OrderSendAsync HFT shell with paired OnTradeTransaction reconciler|
 //| (AP-18 compliant — async without handler is a critical error).    |
 //|                                                                   |
+//| Starter signal: tick-rate gate + tick-by-tick momentum filter.    |
+//| Replace IsBuySignal() / IsSellSignal() with your edge once the     |
+//| infrastructure is validated on demo.                              |
+//|                                                                   |
 //| digits-tested: 5, 3                                                |
 //+------------------------------------------------------------------+
 #property copyright "vibecodekit-mql5-ea"
@@ -25,6 +29,9 @@ input int    InpSlPips       = 10;
 input int    InpTpPips       = 15;
 input double InpDailyLossPct = 0.02;
 input int    InpMaxPositions = 5;
+
+sinput int InpMinTicksPerSec   = 5;     // minimum tick rate to consider the book "hot"
+sinput int InpMaxPendingAsync  = 3;     // backpressure on un-reconciled requests
 
 CPipNormalizer    pip;
 CRiskGuard        risk;
@@ -44,11 +51,58 @@ int OnInit(void)
 
 void OnDeinit(const int reason) {}
 
+// Starter signal: same-tick momentum. Long if last tick lifted ask; short
+// if it pushed bid lower. Replace with your edge.
+bool IsBuySignal(double prev_ask, double ask)  { return ask > prev_ask; }
+bool IsSellSignal(double prev_bid, double bid) { return bid < prev_bid; }
+
 void OnTick(void)
   {
-   // Signal placeholder — production EAs replace with their model output.
-   // The async submitter latches each request_id so OnTradeTransaction can
-   // reconcile the deal latency without polling.
+   risk.OnTick();
+   if(!risk.CanOpenNewPosition()) return;
+   if(async_tm.PendingCount() >= InpMaxPendingAsync) return;  // backpressure
+
+   // Tick-rate gate — only act when the book is hot enough.
+   static ulong  last_tick_ms = 0;
+   static int    tick_count   = 0;
+   static int    ticks_per_sec = 0;
+   ulong now_ms = GetTickCount();
+   if(last_tick_ms == 0 || now_ms - last_tick_ms >= 1000)
+     {
+      ticks_per_sec = tick_count;
+      tick_count    = 0;
+      last_tick_ms  = now_ms;
+     }
+   tick_count++;
+   if(ticks_per_sec < InpMinTicksPerSec) return;
+
+   static double prev_ask = 0.0;
+   static double prev_bid = 0.0;
+   double ask = SymbolInfoDouble(_Symbol, SYMBOL_ASK);
+   double bid = SymbolInfoDouble(_Symbol, SYMBOL_BID);
+   if(prev_ask == 0.0 || prev_bid == 0.0) { prev_ask = ask; prev_bid = bid; return; }
+
+   double lots = pip.LotForRisk(InpRiskMoney, InpSlPips);
+   if(lots <= 0.0) { prev_ask = ask; prev_bid = bid; return; }
+
+   double sl_dist = pip.Pips(InpSlPips);
+   double tp_dist = pip.Pips(InpTpPips);
+
+   if(IsBuySignal(prev_ask, ask))
+     {
+      double sl = ask - sl_dist;
+      double tp = ask + tp_dist;
+      async_tm.SendBuyAsync(_Symbol, lots, sl, tp);
+     }
+   else if(IsSellSignal(prev_bid, bid))
+     {
+      double sl = bid + sl_dist;
+      double tp = bid - tp_dist;
+      async_tm.SendSellAsync(_Symbol, lots, sl, tp);
+     }
+
+   prev_ask = ask;
+   prev_bid = bid;
   }
 
 //+------------------------------------------------------------------+

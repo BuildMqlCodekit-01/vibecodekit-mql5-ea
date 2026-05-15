@@ -34,7 +34,7 @@ No master `/mql5` router — every command stands alone.
 ## Verify (11)
 - `/mql5-compile`             — MetaEditor build (Wine on Linux)
 - `/mql5-lint`                — 8 critical anti-pattern detectors
-- `/mql5-method-hiding-check` — build-aware AP-21 detector
+- `/mql5-method-hiding-check` — build-aware method-hiding detector (ERROR on build ≥ 5260, WARN below)
 - `/mql5-backtest`            — parse Strategy Tester XML → 14 metrics JSON (you run the tester)
 - `/mql5-tester-run`          — drive `terminal64.exe` (Wine or native) with a rendered `tester.ini` and parse the XML end-to-end
 - `/mql5-walkforward`         — IS/OOS Sharpe correlation (takes 2 positional XML reports)
