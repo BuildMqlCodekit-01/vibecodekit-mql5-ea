@@ -24,11 +24,16 @@ def _run_compile(source: Path) -> dict[str, Any]:
     from vibecodekit_mql5 import compile as compile_mod
 
     result = compile_mod.compile_mq5(source)
+    # `compile_mq5` returns a `CompileResult` dataclass, not a dict. Convert
+    # via the dataclass's `to_dict()` so this layer keeps a uniform dict
+    # contract regardless of whether the result came from the live
+    # compiler (dataclass) or a pre-existing log JSON (dict).
+    data: dict[str, Any] = result.to_dict() if hasattr(result, "to_dict") else dict(result)
     return {
-        "success": bool(result.get("success", False)),
-        "errors": list(result.get("errors", [])),
-        "warnings": list(result.get("warnings", [])),
-        "ex5_path": str(result.get("ex5_path", "")),
+        "success": bool(data.get("success", False)),
+        "errors": list(data.get("errors") or []),
+        "warnings": list(data.get("warnings") or []),
+        "ex5_path": str(data.get("ex5_path") or ""),
     }
 
 
