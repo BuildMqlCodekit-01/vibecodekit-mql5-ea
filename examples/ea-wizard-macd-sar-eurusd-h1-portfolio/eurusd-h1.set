@@ -5,13 +5,15 @@
 ; Window   : 2022-01-01 → 2024-12-31
 ; Mode     : every-tick-real
 ;
+; Optimiser surface deliberately kept to 6 inputs (AP-5 cap).
+; MACD(12,26,9) and SAR(0.02,0.2) are fixed at the values the 4-hour
+; turnaround vetted; tuning them per-run is the canonical overfit trap.
+; Reference: MacdSarEurUsdH1.mq5 v1.10, kMacdFast/kMacdSlow/kMacdSignal,
+; kSarStep/kSarMax compile-time constants.
+;
 InpMagic=5001||1||1||10000||N
 InpRiskPerTradePct=0.5||0.1||0.1||2.0||Y
 InpDailyLossPct=2.0||1.0||0.5||5.0||Y
 InpMaxPositions=1||1||1||5||N
-InpMaxSpreadPoints=30||10||5||100||Y
-InpMacdFast=12||8||1||20||Y
-InpMacdSlow=26||20||2||40||Y
-InpMacdSignal=9||5||1||15||Y
-InpSarStep=0.02||0.01||0.005||0.05||Y
-InpSarMax=0.2||0.1||0.05||0.4||Y
+InpMaxSpreadPips=3.0||1.0||0.5||10.0||Y
+InpSlPips=40||20||5||120||Y

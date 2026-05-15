@@ -25,10 +25,16 @@ def test_worked_example_releases_indicator_handles() -> None:
 
 
 def test_worked_example_set_file_has_inputs() -> None:
+    """The 6-input AP-5-compliant optimiser surface (v1.10).
+
+    MACD/SAR periods used to live here too; they were retired into
+    compile-time constants in EAName.mq5 to keep the .set under the
+    AP-5 cap.  Reference: examples/.../EAName.mq5 v1.10 header.
+    """
     text = (EX_DIR / "eurusd-h1.set").read_text()
     for key in ("InpMagic", "InpRiskPerTradePct", "InpDailyLossPct",
-                "InpMacdFast", "InpSarStep"):
-        assert key in text
+                "InpMaxPositions", "InpMaxSpreadPips", "InpSlPips"):
+        assert key in text, f"set file missing {key}"
 
 
 def test_worked_example_results_artefacts_complete() -> None:
