@@ -139,6 +139,18 @@ handoff_prefix_to_caller() {
     fi
 }
 
+handoff_venv_to_caller() {
+    # When this script created `.venv` under sudo, the directory tree is
+    # root-owned. Subsequent CI steps that try to recreate the venv (e.g.
+    # `python -m venv .venv` as the runner user) hit `[Errno 13] Permission
+    # denied`. Chown the venv back to the invoking user so they can reuse
+    # or replace it without root.
+    if [[ -n "${SUDO_USER:-}" && "$SUDO_USER" != "root" && -d ".venv" ]]; then
+        log "Chowning .venv to $SUDO_USER..."
+        chown -R "$SUDO_USER:$SUDO_USER" .venv
+    fi
+}
+
 download_mt5_installer() {
     if [[ -f "$MT5_INSTALLER" ]]; then
         log "MT5 installer already downloaded."
@@ -233,6 +245,7 @@ main() {
     install_mt5
     handoff_prefix_to_caller
     setup_python_venv
+    handoff_venv_to_caller
     verify_smoke
     
     log "==========================================="
