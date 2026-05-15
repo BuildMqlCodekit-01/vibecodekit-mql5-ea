@@ -56,7 +56,19 @@ PHASE_D_PRESETS: dict[str, list[str]] = {
     "dca":                ["hedging"],
 }
 
-PRESETS: dict[str, list[str]] = {**PHASE_A_PRESETS, **PHASE_D_PRESETS}
+# Phase E adds the MQL5 Service archetype (build 5320+). Services are
+# chart-less background programs (data collectors, LLM/REST pollers,
+# VPS canaries) — they live alongside EAs but never call CTrade, so
+# they intentionally bypass the Phase-A risk-guard wiring.
+PHASE_E_PRESETS: dict[str, list[str]] = {
+    "service":            ["standalone"],
+}
+
+PRESETS: dict[str, list[str]] = {
+    **PHASE_A_PRESETS,
+    **PHASE_D_PRESETS,
+    **PHASE_E_PRESETS,
+}
 
 
 @dataclass
