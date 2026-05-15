@@ -66,7 +66,18 @@ def test_find_terminal_missing_is_explicit(tmp_path, monkeypatch):
 
 def test_find_terminal_platform_specific_probes(tmp_path, monkeypatch):
     # Windows probes look for C:\Program Files\..., not Wine prefixes.
+    # CI runners on Windows have MT5 installed at the default path, so the
+    # probe would succeed; redirect the probe set at a guaranteed-empty
+    # location so the lookup definitively fails.
     monkeypatch.delenv("MQL5_TERMINAL_PATH", raising=False)
+    monkeypatch.setattr(
+        tester_run,
+        "_PROBE_PATHS_WIN",
+        (
+            "$MQL5_TERMINAL_PATH",
+            str(tmp_path / "Program Files" / "MetaTrader 5" / "terminal64.exe"),
+        ),
+    )
     with pytest.raises(FileNotFoundError) as exc:
         find_terminal(None, platform="win32")
     assert "Program Files" in str(exc.value)
@@ -286,6 +297,16 @@ def test_cli_missing_terminal_returns_3(tmp_path, monkeypatch, capsys):
     monkeypatch.delenv("MQL5_TERMINAL_PATH", raising=False)
     monkeypatch.setenv("WINEPREFIX", str(tmp_path / "empty"))
     monkeypatch.setenv("HOME", str(tmp_path / "empty-home"))
+    # On Windows CI the default `C:\Program Files\MetaTrader 5\terminal64.exe`
+    # probe is populated by the MT5 install step; redirect both probe sets
+    # at empty tmp paths so the lookup definitively exits with rc=3 instead
+    # of finding the real terminal and timing out with rc=4.
+    empty_probes = (
+        "$MQL5_TERMINAL_PATH",
+        str(tmp_path / "nope" / "terminal64.exe"),
+    )
+    monkeypatch.setattr(tester_run, "_PROBE_PATHS_LINUX", empty_probes)
+    monkeypatch.setattr(tester_run, "_PROBE_PATHS_WIN", empty_probes)
     rc = main([
         "MyEA.ex5", "default.set",
         "--period", "2024.01.01-2024.12.31",

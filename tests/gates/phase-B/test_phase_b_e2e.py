@@ -71,7 +71,7 @@ def test_overfit_check_OOS_ratio():
     assert result.verdict == "PASS"   # 0.905 > 0.7
 
 
-def test_multibroker_rejects_hardcoded_EA():
+def test_multibroker_rejects_hardcoded_EA(tmp_path: Path):
     """5. AP-20 fixture EA must fail Trader-17 + broker-safety gate."""
     ea = FIXTURES / "ap_20_hardcoded_pip.mq5"
     text = ea.read_text(encoding="utf-8", errors="replace")
@@ -88,9 +88,12 @@ def test_multibroker_rejects_hardcoded_EA():
         r.sharpe = 0.4
         r.max_drawdown_pct = 8.0
         fake_reports.append(r)
-    j1 = Path(os.environ.get("PYTEST_TMPDIR") or "/tmp") / "j_ap20_a.log"
-    j2 = Path(os.environ.get("PYTEST_TMPDIR") or "/tmp") / "j_ap20_b.log"
-    j3 = Path(os.environ.get("PYTEST_TMPDIR") or "/tmp") / "j_ap20_c.log"
+    # Use pytest's `tmp_path` so the test runs on platforms without `/tmp`
+    # (Windows CI). The journal-content check below only inspects file
+    # bytes, so any writable scratch dir works.
+    j1 = tmp_path / "j_ap20_a.log"
+    j2 = tmp_path / "j_ap20_b.log"
+    j3 = tmp_path / "j_ap20_c.log"
     for j in (j1, j2, j3):
         j.write_text("OnInit OK", encoding="utf-8")
     fake_journals = [str(j1), str(j2), str(j3)]
