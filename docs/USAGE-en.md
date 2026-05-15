@@ -7,7 +7,7 @@ audience: end_user, dev_team
 
 # `vibecodekit-mql5-ea` v1.0.1 Usage Guide
 
-End-to-end walkthrough of all 43 commands, from idea to live shipping.
+End-to-end walkthrough of all 46 commands, from idea to live shipping.
 Suitable for both new users and dev teams.
 
 > 📚 Vietnamese version: [USAGE-vi.md](USAGE-vi.md)
