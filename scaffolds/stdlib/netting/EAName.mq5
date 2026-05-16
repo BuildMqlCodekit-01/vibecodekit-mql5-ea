@@ -16,11 +16,11 @@
 #include "CMagicRegistry.mqh"
 
 input long   InpMagic       = {{MAGIC}};
-input double InpRiskMoney   = 100.0;
-input int    InpSlPips      = 30;
-input int    InpTpPips      = 60;
-input double InpDailyLossPct = 0.05;
-input int    InpMaxPositions = 3;
+input double InpRiskMoney   = {{RISK_MONEY}};
+input int    InpSlPips      = {{SL_PIPS}};
+input int    InpTpPips      = {{TP_PIPS}};
+input double InpDailyLossPct = {{DAILY_LOSS_FRAC}};
+input int    InpMaxPositions = {{MAX_POSITIONS}};
 
 CPipNormalizer pip;
 CRiskGuard     risk;

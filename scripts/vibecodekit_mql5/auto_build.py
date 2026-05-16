@@ -42,9 +42,12 @@ from typing import Any
 from . import build as build_mod
 from . import compile as compile_mod
 from . import lint as lint_mod
+from . import spec_schema
 
-REQUIRED_FIELDS: tuple[str, ...] = ("name", "preset", "stack", "symbol", "timeframe")
-VALID_MODES: frozenset[str] = frozenset({"personal", "team", "enterprise"})
+# Kept for backward compat with anything that imported these constants from
+# auto_build. The canonical source-of-truth now lives in spec_schema.
+REQUIRED_FIELDS: tuple[str, ...] = spec_schema.REQUIRED_TOP_FIELDS
+VALID_MODES: frozenset[str] = spec_schema.VALID_MODES
 
 
 @dataclass
@@ -94,29 +97,33 @@ def load_spec(path: Path) -> dict[str, Any]:
     return data
 
 
-def validate_spec(spec: dict[str, Any]) -> None:
-    missing = [f for f in REQUIRED_FIELDS if f not in spec]
-    if missing:
-        raise ValueError(f"spec missing required fields: {missing}")
-    for f in REQUIRED_FIELDS:
-        if not isinstance(spec[f], str) or not spec[f]:
-            raise ValueError(f"spec.{f} must be a non-empty string")
-    mode = spec.get("mode", "personal")
-    if mode not in VALID_MODES:
-        raise ValueError(f"spec.mode={mode!r} not in {sorted(VALID_MODES)}")
-    if spec["preset"] not in build_mod.PRESETS:
-        raise ValueError(
-            f"spec.preset={spec['preset']!r} not in {sorted(build_mod.PRESETS)}"
-        )
-    stacks = build_mod.PRESETS[spec["preset"]]
-    if spec["stack"] not in stacks:
-        raise ValueError(
-            f"spec.stack={spec['stack']!r} not supported by preset "
-            f"{spec['preset']!r}; valid: {stacks}"
-        )
+def validate_spec(spec: dict[str, Any]) -> spec_schema.EaSpec:
+    """Validate ``spec`` and return a populated :class:`EaSpec`.
+
+    Delegates to :func:`spec_schema.validate` so the schema (required fields,
+    risk bounds, signal kinds) lives in exactly one place. Raises ``ValueError``
+    on bad input so the existing ``main()`` error-handling path keeps working
+    — ``SpecValidationError`` is a subclass of ``ValueError``.
+    """
+    return spec_schema.validate(spec, valid_presets=build_mod.PRESETS)
 
 
-def _stage_build(spec: dict[str, Any], out_dir: Path, force: bool) -> StageResult:
+def _stage_build(
+    spec: dict[str, Any],
+    out_dir: Path,
+    force: bool,
+    ea_spec: spec_schema.EaSpec | None = None,
+) -> StageResult:
+    # Validated EaSpec carries risk + signals/filters/hooks for template
+    # substitution and signals.md emission. When ``ea_spec`` is None (e.g. a
+    # direct caller that bypassed validate_spec) fall back to defaults.
+    extras: dict[str, str] = {}
+    extra_files: list[tuple[str, str]] = []
+    if ea_spec is not None:
+        extras = ea_spec.risk.as_template_vars()
+        if ea_spec.signals or ea_spec.filters:
+            extra_files.append(("signals.md", spec_schema.render_signals_doc(ea_spec)))
+
     req = build_mod.BuildRequest(
         preset=spec["preset"],
         name=spec["name"],
@@ -127,6 +134,8 @@ def _stage_build(spec: dict[str, Any], out_dir: Path, force: bool) -> StageResul
         scaffolds_root=build_mod.DEFAULT_SCAFFOLDS,
         include_root=build_mod.DEFAULT_INCLUDE,
         force=force,
+        extras=extras,
+        extra_files=extra_files,
     )
     try:
         result_dir = build_mod.build(req)
@@ -194,10 +203,11 @@ def run_pipeline(
     skip_compile: bool = False,
     skip_gate: bool = False,
     force: bool = False,
+    ea_spec: spec_schema.EaSpec | None = None,
 ) -> PipelineReport:
     report = PipelineReport(spec=spec, out_dir=str(out_dir))
 
-    build_stage = _stage_build(spec, out_dir, force)
+    build_stage = _stage_build(spec, out_dir, force, ea_spec=ea_spec)
     report.stages.append(build_stage)
     if not build_stage.ok:
         report.ok = False
@@ -261,7 +271,7 @@ def main(argv: list[str] | None = None) -> int:
 
     try:
         spec = load_spec(args.spec)
-        validate_spec(spec)
+        ea_spec = validate_spec(spec)
     except (FileNotFoundError, ValueError, RuntimeError, json.JSONDecodeError) as exc:
         print(f"mql5-auto-build: {exc}", file=sys.stderr)
         return 2
@@ -273,6 +283,7 @@ def main(argv: list[str] | None = None) -> int:
         skip_compile=args.no_compile,
         skip_gate=args.no_gate,
         force=args.force,
+        ea_spec=ea_spec,
     )
     report_path = _write_report(report, out_dir)
     print(json.dumps(report.to_dict(), indent=2))
