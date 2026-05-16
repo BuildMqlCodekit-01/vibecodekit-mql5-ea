@@ -23,7 +23,7 @@ import argparse
 import hashlib
 import shutil
 import sys
-from dataclasses import dataclass
+from dataclasses import dataclass, field
 from pathlib import Path
 
 REPO_ROOT = Path(__file__).resolve().parents[2]
@@ -82,6 +82,16 @@ class BuildRequest:
     scaffolds_root: Path
     include_root: Path
     force: bool = False
+    # Optional per-build template variables, e.g. risk overrides emitted by
+    # ``spec_schema.RiskConfig.as_template_vars``. Each key/value is replaced
+    # in scaffold text as ``{{KEY}}`` -> ``value``. Empty by default so the
+    # existing callers (``mql5-build`` CLI, Phase A tests) keep their old
+    # behaviour: scaffolds with no extra placeholders render identically.
+    extras: dict[str, str] = field(default_factory=dict)
+    # Optional companion files to write into ``out_dir`` after the scaffold
+    # has been rendered, e.g. ``signals.md`` describing the indicator chain
+    # the user asked for. ``(rel_path, content)`` tuples; UTF-8 text only.
+    extra_files: list[tuple[str, str]] = field(default_factory=list)
 
 
 def _magic_for(name: str) -> int:
@@ -90,13 +100,38 @@ def _magic_for(name: str) -> int:
     return 70000 + (h % 10000)
 
 
+# Default values for spec-driven placeholders. Used when a scaffold template
+# references e.g. ``{{RISK_MONEY}}`` but the caller didn't supply ``extras``
+# (typical for the bare ``mql5-build`` CLI). These match the previous hardcoded
+# numbers in stdlib/netting so the rendered output is identical to v1.0.1.
+_EXTRA_DEFAULTS: dict[str, str] = {
+    "RISK_MONEY":         "100.0",
+    "RISK_PER_TRADE_PCT": "0.5",
+    "SL_PIPS":            "30",
+    "TP_PIPS":            "60",
+    "DAILY_LOSS_FRAC":    "0.05",
+    "DAILY_LOSS_PCT":     "5.0",
+    "MAX_SPREAD_PIPS":    "3.0",
+    "MAX_POSITIONS":      "3",
+}
+
+
 def _render(text: str, req: BuildRequest, magic: int) -> str:
-    return (
+    out = (
         text.replace("{{NAME}}",   req.name)
             .replace("{{SYMBOL}}", req.symbol)
             .replace("{{TF}}",     req.tf)
             .replace("{{MAGIC}}",  str(magic))
     )
+    # Apply spec-driven overrides first, then fill any leftover defaults so
+    # scaffolds that reference {{RISK_MONEY}} / {{SL_PIPS}} / ... still render
+    # correctly when the caller (e.g. plain ``mql5-build`` CLI) didn't pass an
+    # ``extras`` dict. Templates that don't reference a given placeholder
+    # simply ignore it, keeping the change backward-compatible.
+    merged: dict[str, str] = {**_EXTRA_DEFAULTS, **req.extras}
+    for key, value in merged.items():
+        out = out.replace(f"{{{{{key}}}}}", value)
+    return out
 
 
 def _render_name(name: str, req: BuildRequest) -> str:
@@ -148,6 +183,14 @@ def build(req: BuildRequest) -> Path:
     if req.include_root.is_dir():
         for inc in req.include_root.glob("*.mqh"):
             (req.out_dir / inc.name).write_bytes(inc.read_bytes())
+
+    # Spec-driven companion files (e.g. signals.md describing the indicator
+    # chain the user asked for). Written after the scaffold so they can
+    # deliberately shadow any scaffold file of the same name.
+    for rel_path, content in req.extra_files:
+        dst = req.out_dir / rel_path
+        dst.parent.mkdir(parents=True, exist_ok=True)
+        dst.write_text(content, encoding="utf-8")
     return req.out_dir
 
 
