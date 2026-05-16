@@ -15,6 +15,7 @@ from __future__ import annotations
 import argparse
 import importlib
 import json
+import os
 import shutil
 import sys
 from dataclasses import dataclass, field
@@ -28,6 +29,38 @@ REQUIRED_MODULES = [
     "vibecodekit_mql5.build",
     "vibecodekit_mql5.pip_normalize",
 ]
+
+# Standard MetaTrader 5 binary locations Devin's setup-wine-metaeditor.sh leaves
+# behind. Doctor uses these as a fallback when the corresponding env var is not
+# set, so a fresh shell that hasn't sourced ~/.mql5-env still gets a green check.
+_METAEDITOR_PROBES: tuple[str, ...] = (
+    "$METAEDITOR_PATH",
+    "$WINEPREFIX/drive_c/Program Files/MetaTrader 5/MetaEditor64.exe",
+    "$HOME/.wine-mql5/drive_c/Program Files/MetaTrader 5/MetaEditor64.exe",
+    "$HOME/.wine/drive_c/Program Files/MetaTrader 5/MetaEditor64.exe",
+)
+_TERMINAL_PROBES: tuple[str, ...] = (
+    "$MQL5_TERMINAL_PATH",
+    "$WINEPREFIX/drive_c/Program Files/MetaTrader 5/terminal64.exe",
+    "$HOME/.wine-mql5/drive_c/Program Files/MetaTrader 5/terminal64.exe",
+    "$HOME/.wine/drive_c/Program Files/MetaTrader 5/terminal64.exe",
+)
+
+
+def _probe(paths: tuple[str, ...]) -> Path | None:
+    """Return the first existing path after expanding env vars / ``~``.
+
+    Empty / unset env vars (e.g. ``$METAEDITOR_PATH`` when never exported) are
+    skipped so they don't show up in the report as a bogus failure detail.
+    """
+    for raw in paths:
+        expanded = os.path.expandvars(os.path.expanduser(raw))
+        if expanded == raw and raw.startswith("$"):
+            continue  # env var unset
+        p = Path(expanded)
+        if p.is_file():
+            return p
+    return None
 
 REQUIRED_SCAFFOLDS = [
     "stdlib/netting", "stdlib/hedging", "stdlib/python-bridge",
@@ -56,8 +89,21 @@ def run_doctor(repo_root: Path = REPO_ROOT) -> DoctorReport:
     rep.add("python-version", sys.version_info >= (3, 10),
             f"{sys.version_info.major}.{sys.version_info.minor}")
     rep.add("wine", shutil.which("wine") is not None, "PATH")
-    metaeditor = repo_root / ".cache" / "metaeditor" / "MetaEditor64.exe"
-    rep.add("metaeditor-bin", metaeditor.exists(), str(metaeditor))
+
+    metaeditor = _probe(_METAEDITOR_PROBES)
+    rep.add(
+        "metaeditor-bin",
+        metaeditor is not None,
+        str(metaeditor) if metaeditor else "not found in any of: "
+        + ", ".join(_METAEDITOR_PROBES),
+    )
+    terminal = _probe(_TERMINAL_PROBES)
+    rep.add(
+        "terminal-bin",
+        terminal is not None,
+        str(terminal) if terminal else "not found in any of: "
+        + ", ".join(_TERMINAL_PROBES),
+    )
     for mod in REQUIRED_MODULES:
         try:
             importlib.import_module(mod)

@@ -16,6 +16,55 @@ def test_doctor_returns_report_with_checks() -> None:
     assert len(rep.checks) >= 10
 
 
+def test_doctor_reports_metaeditor_and_terminal_via_env(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """METAEDITOR_PATH / MQL5_TERMINAL_PATH overrides take precedence.
+
+    Setup-wine-metaeditor.sh writes both to ~/.mql5-env after install, so doctor
+    must find them on every fresh shell that sources that file.
+    """
+    me = tmp_path / "MetaEditor64.exe"
+    term = tmp_path / "terminal64.exe"
+    me.write_bytes(b"")
+    term.write_bytes(b"")
+    monkeypatch.setenv("METAEDITOR_PATH", str(me))
+    monkeypatch.setenv("MQL5_TERMINAL_PATH", str(term))
+    monkeypatch.delenv("WINEPREFIX", raising=False)
+    rep = doctor.run_doctor(REPO_ROOT)
+    by_name = {c["name"]: c for c in rep.checks}
+    assert by_name["metaeditor-bin"]["ok"] is True
+    assert by_name["metaeditor-bin"]["detail"] == str(me)
+    assert by_name["terminal-bin"]["ok"] is True
+    assert by_name["terminal-bin"]["detail"] == str(term)
+
+
+def test_doctor_metaeditor_and_terminal_fail_with_useful_detail(
+    tmp_path: Path, monkeypatch
+) -> None:
+    """When no probe path resolves, doctor must list what it tried.
+
+    Regression: the previous `repo_root/.cache/metaeditor/MetaEditor64.exe`
+    check always failed even on a fully-working Devin VM. The new probe list
+    is order-sensitive, so verify the failure-detail names every candidate so
+    operators can fix the install with one glance.
+    """
+    monkeypatch.delenv("METAEDITOR_PATH", raising=False)
+    monkeypatch.delenv("MQL5_TERMINAL_PATH", raising=False)
+    monkeypatch.setenv("WINEPREFIX", str(tmp_path / "empty"))
+    monkeypatch.setenv("HOME", str(tmp_path / "empty-home"))
+    rep = doctor.run_doctor(REPO_ROOT)
+    by_name = {c["name"]: c for c in rep.checks}
+    assert by_name["metaeditor-bin"]["ok"] is False
+    # Failure detail must contain the env-var name (so an operator knows what
+    # to set) AND the canonical Wine-prefix probe path.
+    assert "METAEDITOR_PATH" in by_name["metaeditor-bin"]["detail"]
+    assert "MetaEditor64.exe" in by_name["metaeditor-bin"]["detail"]
+    assert by_name["terminal-bin"]["ok"] is False
+    assert "MQL5_TERMINAL_PATH" in by_name["terminal-bin"]["detail"]
+    assert "terminal64.exe" in by_name["terminal-bin"]["detail"]
+
+
 def test_install_skips_when_target_already_has_file(tmp_path: Path) -> None:
     # Pre-populate the target with one Include header.
     incl = tmp_path / "Include" / "CPipNormalizer.mqh"
