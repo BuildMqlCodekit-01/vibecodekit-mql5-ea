@@ -139,6 +139,21 @@ handoff_prefix_to_caller() {
     fi
 }
 
+handoff_env_file_to_caller() {
+    # ~/.mql5-env is written by install_mt5 while running as root, so it lands
+    # owned by root and the runner user can't source it without sudo. Chown it
+    # back to $SUDO_USER (alongside .venv / egg-info) so a follow-up shell can
+    # just `source ~/.mql5-env` without permission errors.
+    if [[ -z "${SUDO_USER:-}" || "$SUDO_USER" == "root" ]]; then
+        return
+    fi
+    local env_file="$HOME/.mql5-env"
+    if [[ -f "$env_file" ]]; then
+        log "Chowning $env_file to $SUDO_USER..."
+        chown "$SUDO_USER:$SUDO_USER" "$env_file"
+    fi
+}
+
 handoff_venv_to_caller() {
     # When this script ran `pip install -e ".[dev]"` under sudo, several
     # build artefacts end up root-owned and break subsequent CI steps that
@@ -198,10 +213,27 @@ install_mt5() {
         exit 1
     fi
     log "MetaEditor installed at: $METAEDITOR_PATH"
-    
-    # Save path for later use
-    echo "export METAEDITOR_PATH='$METAEDITOR_PATH'" > "$HOME/.mql5-env"
-    echo "export WINEPREFIX='$WINEPREFIX'" >> "$HOME/.mql5-env"
+
+    # The MT5 installer also ships terminal64.exe (Strategy Tester host) in the
+    # same Program Files directory. Locate it explicitly so $MQL5_TERMINAL_PATH
+    # can be exported alongside $METAEDITOR_PATH — without it, mql5-tester-run
+    # has to fall back to a slower probe of $WINEPREFIX every invocation.
+    local TERMINAL_PATH
+    TERMINAL_PATH=$(find "$WINEPREFIX" -iname "terminal64.exe" 2>/dev/null | head -1)
+    if [[ -z "$TERMINAL_PATH" ]]; then
+        log "ERROR: terminal64.exe not found after install — mql5-tester-run will not work"
+        exit 1
+    fi
+    log "MetaTrader 5 terminal installed at: $TERMINAL_PATH"
+
+    # Save paths for later use. Sourcing ~/.mql5-env in a shell rc makes the
+    # kit's CLIs (mql5-compile / mql5-tester-run / mql5-doctor) pick them up
+    # with no further configuration.
+    {
+        echo "export METAEDITOR_PATH='$METAEDITOR_PATH'"
+        echo "export MQL5_TERMINAL_PATH='$TERMINAL_PATH'"
+        echo "export WINEPREFIX='$WINEPREFIX'"
+    } > "$HOME/.mql5-env"
 }
 
 setup_python_venv() {
@@ -255,6 +287,7 @@ main() {
     download_mt5_installer
     install_mt5
     handoff_prefix_to_caller
+    handoff_env_file_to_caller
     setup_python_venv
     handoff_venv_to_caller
     verify_smoke
