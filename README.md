@@ -1,17 +1,20 @@
 # vibecodekit-mql5-ea
 
 [![version](https://img.shields.io/badge/version-v1.0.1-blue)](https://github.com/BuildMqlCodekit-01/vibecodekit-mql5-ea/releases/tag/v1.0.1)
-[![tests](https://img.shields.io/badge/tests-338%20passing-success)]()
+[![tests](https://img.shields.io/badge/tests-478%20passing-success)]()
 [![lint](https://img.shields.io/badge/ruff-clean-success)]()
 [![license](https://img.shields.io/badge/license-MIT-lightgrey)](LICENSE)
 
 > **Vibecode methodology kit** for building production-grade MQL5 Expert
-> Advisors on MetaTrader 5. Forty-six CLI commands, three MCP servers,
-> twenty-nine reference cheatsheets, twenty-three anti-pattern detectors,
-> and one fully worked 4-hour wizard-composable portfolio EA — all
-> delivered as a flat, router-free, fail-fast toolkit.
+> Advisors on MetaTrader 5. **Fifty CLI commands** (including a
+> single-shot `mql5-auto-build` pipeline, an auto-fix loop for the eight
+> critical anti-patterns, a natural-language `mql5-spec-from-prompt`
+> parser, and a publishable quality-matrix dashboard), three MCP
+> servers, twenty-nine reference cheatsheets, twenty-three anti-pattern
+> detectors, and one fully worked 4-hour wizard-composable portfolio EA
+> — all delivered as a flat, router-free, fail-fast toolkit.
 
-📘 **Docs:** [Quickstart](docs/QUICKSTART.md) · [Full usage guide (EN)](docs/USAGE-en.md) · [Hướng dẫn đầy đủ (VN)](docs/USAGE-vi.md) · [Per-IDE setup](docs/ENV-SETUP-vi.md) · [Command catalog](docs/COMMANDS.md) · [Plan v5](docs/PLAN-v5.md)
+📘 **Docs:** [Quickstart](docs/QUICKSTART.md) · [Full usage guide (EN)](docs/USAGE-en.md) · [Hướng dẫn đầy đủ (VN)](docs/USAGE-vi.md) · [Per-IDE setup](docs/ENV-SETUP-vi.md) · [Command catalog](docs/COMMANDS.md) · [Chat-driven build](docs/devin-chat-driven-build.md) · [Plan v5](docs/PLAN-v5.md)
 
 ---
 
@@ -21,7 +24,7 @@
 
 | Layer | Shipped |
 |-------|---------|
-| **Commands** | 46 (`/mql5-{scan,survey,doctor,audit,rri,vision,blueprint,tip,build,wizard,pip-normalize,async-build,onnx-export,onnx-embed,llm-context,forge-init,compile,lint,method-hiding-check,backtest,tester-run,walkforward,monte-carlo,overfit-check,multibroker,fitness,mfe-mae,rri-bt,rri-rr,rri-chart,review,eng-review,ceo-review,cso,investigate,deploy-vps,cloud-optimize,canary,forge-pr,ship,refine,broker-safety,trader-check,install,second-opinion}`) |
+| **Commands** | 50 (`/mql5-{scan,survey,doctor,audit,rri,vision,blueprint,tip,build,auto-build,auto-fix,spec-from-prompt,dashboard,wizard,pip-normalize,async-build,onnx-export,onnx-embed,llm-context,forge-init,compile,lint,method-hiding-check,backtest,tester-run,walkforward,monte-carlo,overfit-check,multibroker,fitness,mfe-mae,rri-bt,rri-rr,rri-chart,review,eng-review,ceo-review,cso,investigate,deploy-vps,cloud-optimize,canary,forge-pr,ship,refine,broker-safety,trader-check,install,second-opinion,permission}`) |
 | **MCP servers** | 3 (`metaeditor-bridge`, `mt5-bridge` READ-ONLY[^1], `algo-forge-bridge`) |
 | **Reference docs** | 29 (`docs/references/50-survey.md` → `80-input-syntax.md`) |
 | **Scaffolds** | 22 archetypes × broker variants (`scaffolds/trend/netting`, `scalping/hedging`, `hft-async/netting`, `service-llm-bridge/{cloud-api,self-hosted-ollama,embedded-onnx-llm}`, `ml-onnx/python-bridge`, …) |
@@ -31,7 +34,9 @@
 | **Mode-aware orchestrator** | PERSONAL (layers 1/2/3/4/7) · TEAM (1-5,7) · ENTERPRISE (1-7) |
 | **Trader checklist** | 17 items (`trader-check`) with 15/17 PASS threshold |
 | **Worked example** | `examples/ea-wizard-macd-sar-eurusd-h1-portfolio/` — 4-hour enterprise turnaround |
-| **Test gate** | 338 tests passing across Phase 0/A/B/C/D/E |
+| **Auto-build pipeline** | `mql5-spec-from-prompt` → `ea-spec.yaml` → `mql5-auto-build` (scan → build → lint → compile → permission-gate → dashboard) — single command, idempotent JSON report, optional publish-to-public-URL |
+| **Reproducible env** | `requirements.lock` (pip-compile pinned) + `Dockerfile.devin` (3-stage: base / wine / ci) |
+| **Test gate** | 478 tests passing across Phase 0/A/B/C/D/E |
 
 [^1]: `mt5-bridge` requires the `MetaTrader5` Python package, which only
     installs on Windows or Wine MT5 desktop. On a Linux Devin VM without
@@ -57,6 +62,19 @@ python -m vibecodekit_mql5.lint    FirstEA.mq5
 python -m vibecodekit_mql5.compile FirstEA.mq5
 ```
 
+**One-shot pipeline (recommended for new EAs):**
+
+```bash
+# free text → ea-spec.yaml → scaffold + lint + compile + dashboard
+mql5-spec-from-prompt "build EA trend EURUSD H1 risk 0.5%" --out ea-spec.yaml
+mql5-auto-build --spec ea-spec.yaml --out-dir build/FirstEA
+jq '{ok, dashboard}' build/FirstEA/auto-build-report.json
+```
+
+See [docs/devin-chat-driven-build.md](docs/devin-chat-driven-build.md) for
+the end-to-end chat flow and the `MQL5_DASHBOARD_PUBLISH_CMD` publish
+hook (Vercel / S3 / scp+nginx).
+
 Detailed walk-throughs:
 - New users — [docs/USAGE-en.md](docs/USAGE-en.md)
 - Dev teams + worked example — [examples/ea-wizard-macd-sar-eurusd-h1-portfolio/README.md](examples/ea-wizard-macd-sar-eurusd-h1-portfolio/README.md)
@@ -72,6 +90,7 @@ Detailed walk-throughs:
 | C | `v0.3.0` | Methodology | 6 RRI personas × 25 q × 3 modes, 8-step workflow, 64-cell quality matrix, 7-layer permission orchestrator |
 | D | `v0.5.0` | Tech 2024-2025 | ONNX runtime 1.14 export/embed, HFT async (`OrderSendAsync` + `OnTradeTransaction`), Algo Forge, LLM bridge (3 patterns), Cloud Network optimize, method-hiding linter |
 | **E** | **`v1.0.1`** | **Polish & ship** | **29 reference docs, 3 MCP servers, `/mql5-canary` + `/mql5-tester-run`, 4-hour worked example, full `[project.scripts]` entry-point coverage** |
+| **E+** | _(post-v1.0.1)_ | Auto-build pipeline | `mql5-auto-build` single-shot orchestrator, `mql5-auto-fix` AP-1/3/5/15/17/18/20/21 transformer, `mql5-spec-from-prompt` natural-language → `ea-spec.yaml`, `mql5-dashboard` quality-matrix publisher with public-URL hook, schema-driven `ea-spec.yaml` (risk / signals / filters / hooks), `requirements.lock` + `Dockerfile.devin`, expanded Devin Wine setup with `terminal64.exe` |
 
 ### Anti-patterns this kit refuses to ship
 
@@ -102,7 +121,7 @@ hot-spots:
 
 | Thành phần | Đã giao |
 |-----------|---------|
-| **Lệnh CLI** | 46 lệnh — đầy đủ chu trình `scan → plan → build → verify → review → deploy → ship` |
+| **Lệnh CLI** | 50 lệnh — đầy đủ chu trình `scan → plan → build → verify → review → deploy → ship`, bao gồm `mql5-auto-build` chạy 1 lệnh, `mql5-auto-fix` đóng 8 AP nghiêm trọng, `mql5-spec-from-prompt` parse free-text → `ea-spec.yaml`, `mql5-dashboard` xuất ma trận chất lượng kèm URL public |
 | **MCP server** | 3 (`metaeditor-bridge`, `mt5-bridge` chỉ-đọc[^2], `algo-forge-bridge`) — chuẩn MCP JSON-RPC 2.0 over stdio |
 | **Tài liệu tham khảo** | 29 cheatsheet (`docs/references/50-survey.md` → `80-input-syntax.md`) |
 | **Scaffold** | 22 archetype × biến thể tài khoản (`trend/netting`, `scalping/hedging`, `hft-async/netting`, 3 biến thể LLM bridge, ml-onnx, …) |
@@ -112,7 +131,9 @@ hot-spots:
 | **Mode orchestrator** | PERSONAL (lớp 1/2/3/4/7) · TEAM (1-5, 7) · ENTERPRISE (1-7) |
 | **Trader checklist** | 17 mục (`trader-check`), ngưỡng pass 15/17 |
 | **Ví dụ hoàn chỉnh** | `examples/ea-wizard-macd-sar-eurusd-h1-portfolio/` — turnaround 4 tiếng ở chế độ enterprise |
-| **Test gate** | 338 test pass qua Phase 0/A/B/C/D/E |
+| **Pipeline auto-build** | `mql5-spec-from-prompt` → `ea-spec.yaml` → `mql5-auto-build` (scan → build → lint → compile → permission-gate → dashboard) — 1 lệnh, JSON report idempotent, hook publish public URL tuỳ chọn |
+| **Môi trường reproducible** | `requirements.lock` (pip-compile pin chặt) + `Dockerfile.devin` (3 stage: base / wine / ci) |
+| **Test gate** | 478 test pass qua Phase 0/A/B/C/D/E |
 
 [^2]: `mt5-bridge` cần package `MetaTrader5` Python — chỉ cài được trên
     Windows hoặc Wine MT5 desktop. Trên Linux Devin VM, import fail và
@@ -137,6 +158,19 @@ python -m vibecodekit_mql5.lint    FirstEA.mq5
 python -m vibecodekit_mql5.compile FirstEA.mq5
 ```
 
+**Pipeline 1-lệnh (khuyến nghị cho EA mới):**
+
+```bash
+# free-text → ea-spec.yaml → scaffold + lint + compile + dashboard
+mql5-spec-from-prompt "build EA trend EURUSD H1 risk 0.5%" --out ea-spec.yaml
+mql5-auto-build --spec ea-spec.yaml --out-dir build/FirstEA
+jq '{ok, dashboard}' build/FirstEA/auto-build-report.json
+```
+
+Xem [docs/devin-chat-driven-build.md](docs/devin-chat-driven-build.md)
+cho flow chat đầy đủ và hook `MQL5_DASHBOARD_PUBLISH_CMD` để publish
+bảng chất lượng lên Vercel / S3 / scp+nginx.
+
 Hướng dẫn chi tiết:
 - Người mới — [docs/USAGE-vi.md](docs/USAGE-vi.md)
 - Team dev + worked example — [examples/ea-wizard-macd-sar-eurusd-h1-portfolio/README.md](examples/ea-wizard-macd-sar-eurusd-h1-portfolio/README.md)
@@ -152,6 +186,7 @@ Hướng dẫn chi tiết:
 | C | `v0.3.0` | Phương pháp luận | 6 RRI persona × 25 câu × 3 mode, workflow 8 bước, ma trận 64 ô, orchestrator 7 lớp |
 | D | `v0.5.0` | Công nghệ 2024-2025 | ONNX runtime 1.14, HFT async, Algo Forge, LLM bridge (3 pattern), Cloud Network optimize, method-hiding linter |
 | **E** | **`v1.0.1`** | **Polish & ship** | **28 tài liệu tham khảo, 3 MCP server, `/mql5-canary`, worked example 4 tiếng, đầy đủ entry-point `[project.scripts]`** |
+| **E+** | _(post-v1.0.1)_ | Pipeline auto-build | `mql5-auto-build` orchestrator 1 lệnh, `mql5-auto-fix` transform AP-1/3/5/15/17/18/20/21, `mql5-spec-from-prompt` free-text → `ea-spec.yaml`, `mql5-dashboard` publisher ma trận chất lượng có hook URL public, `ea-spec.yaml` schema-driven (risk / signals / filters / hooks), `requirements.lock` + `Dockerfile.devin`, mở rộng setup Devin Wine kèm `terminal64.exe` |
 
 ### Anti-pattern kit từ chối ship
 
