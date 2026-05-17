@@ -8,7 +8,7 @@ audience: dev_team
 # Tích hợp `vibecodekit-mql5-ea` với 6 môi trường dev / agent
 
 Hướng dẫn này áp dụng v1.0.0+. Mỗi section hoàn chỉnh và độc lập:
-chọn section IDE/CLI bạn dùng, paste config, sẵn sàng chạy 43 lệnh +
+chọn section IDE/CLI bạn dùng, paste config, sẵn sàng chạy 50 lệnh +
 3 MCP server.
 
 > 🇬🇧 English version pending — sections below are bilingual where it
@@ -30,7 +30,18 @@ chọn section IDE/CLI bạn dùng, paste config, sẵn sàng chạy 43 lệnh +
 
 Devin tự kế thừa repo + blueprint. Tạo session mới với link repo
 `https://github.com/BuildMqlCodekit-01/vibecodekit-mql5-ea` và prompt
-khởi đầu mẫu:
+khởi đầu mẫu (một lệnh gọn nếu muốn dùng pipeline auto-build):
+
+```
+Bắt chước docs/devin-chat-driven-build.md. Sau đó:
+1. mql5-spec-from-prompt "build EA trend EURUSD H1 risk 0.5%" \
+     --out ea-spec.yaml --strict
+2. mql5-auto-build --spec ea-spec.yaml --out-dir build/DemoEA --force
+3. Báo `.ok`, stage nào fail, và `.dashboard.public_url` từ
+   build/DemoEA/auto-build-report.json.
+```
+
+Nếu muốn flow từng bước thủ công (debug hoặc học):
 
 ```
 Đọc docs/USAGE-vi.md.  Sau đó:
@@ -45,13 +56,36 @@ khởi đầu mẫu:
 Devin VM cho repo này đã pre-install:
 - Wine 8.0.2 (đã wineboot headless)
 - MetaEditor build ≥ 5260 (Wine-side)
+- `terminal64.exe` + `$MQL5_TERMINAL_PATH` (cho `mql5-tester-run` /
+  `mql5-auto-build` stage compile + tester)
 - Python 3.10 + venv
 - `torch` (CPU), `onnx`, `onnxscript`
 - `pre-commit` hooks
-- `pytest`, `ruff`
+- `pytest`, `ruff`, `pip-tools` (để regen `requirements.lock`)
 
 Nếu thiếu, blueprint sẽ tự cài lúc session khởi tạo (xem
 `devin_env(action="read_config")`).
+
+#### 1.1a. Môi trường reproducible (Dockerfile / lockfile)
+
+Nếu muốn container hoá hoàn toàn (CI runner, bản local Mac/Win, hay
+ghim số phiên bản):
+
+```bash
+# 3-stage image: base (Python deps) → wine (Wine + MetaEditor) → ci
+docker build -f Dockerfile.devin --target wine -t mql5-kit:wine .
+docker run --rm -v $PWD:/work -w /work mql5-kit:wine \
+    bash -lc 'pytest -q && mql5-doctor'
+```
+
+File `requirements.lock` (sinh bởi `pip-compile --extra dev`) pin toàn
+bộ cây dep cho dev/test — reproducible 100% giữa local và CI. Regen
+khi bạn thêm dep mới:
+
+```bash
+pip install pip-tools
+pip-compile --extra dev --output-file requirements.lock
+```
 
 ### 1.2. Secret cần có
 
@@ -88,8 +122,10 @@ Codex tự đọc `AGENTS.md` khi ở trong repo. Tạo file này:
 ## Setup
 - Wine 8.0.2 đã được cài qua `./scripts/setup-wine-metaeditor.sh`.
 - Python venv ở `.venv/`. Activate: `source .venv/bin/activate`.
-- 43 lệnh `python -m vibecodekit_mql5.<name>`.
+- 50 lệnh `python -m vibecodekit_mql5.<name>` (xem `docs/COMMANDS.md`).
 - Đọc `docs/USAGE-vi.md` để biết workflow đầy đủ.
+- Shortcut 1-lệnh:
+  `mql5-spec-from-prompt "<prompt>" --out ea-spec.yaml && mql5-auto-build --spec ea-spec.yaml`.
 
 ## Build
 ```bash
@@ -369,7 +405,7 @@ python -m vibecodekit_mql5.audit
 ruff check scripts/ mcp/
 ```
 
-## 43 lệnh
+## 50 lệnh
 Xem `docs/COMMANDS.md`. Gọi: `python -m vibecodekit_mql5.<name>`.
 ```
 

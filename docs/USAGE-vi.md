@@ -7,12 +7,13 @@ audience: end_user, dev_team
 
 # Hướng dẫn sử dụng `vibecodekit-mql5-ea` v1.0.1
 
-Tài liệu này hướng dẫn từng bước cách dùng toàn bộ 43 lệnh để build một
+Tài liệu này hướng dẫn từng bước cách dùng toàn bộ 50 lệnh để build một
 Expert Advisor MQL5 hoàn chỉnh, từ ý tưởng đến ship live. Phù hợp cho cả
 người mới và dev team.
 
 > 📚 Phiên bản tiếng Anh: [USAGE-en.md](USAGE-en.md)
 > 🛠️ Tích hợp IDE / CLI (Devin, Codex, Claude Code, Cursor, …): [ENV-SETUP-vi.md](ENV-SETUP-vi.md)
+> 💬 Build theo prompt (chat → spec → pipeline): [devin-chat-driven-build.md](devin-chat-driven-build.md)
 
 ## Mục lục
 
@@ -139,7 +140,7 @@ python -m vibecodekit_mql5.blueprint          # mở step-4-blueprint
 python -m vibecodekit_mql5.tip                # mở step-5-tip (8 TIP)
 ```
 
-### 3.3. Build (8 lệnh)
+### 3.3. Build (12 lệnh)
 
 ```bash
 # 1. Render scaffold tổng quát — chọn archetype + variant
@@ -172,7 +173,47 @@ python -m vibecodekit_mql5.llm_context MyEA.mq5 --pattern cloud-api
 python -m vibecodekit_mql5.forge_init MyEA
 ```
 
-### 3.4. Verify (10 lệnh)
+#### 3.3a. Pipeline auto-build 1 lệnh
+
+4 CLI dưới đây lấp khoảng trống giữa "tôi muốn EA làm X" và PR
+xanh CI. Mỗi lệnh deterministic, chỉ dùng regex (không gọi LLM), output
+JSON hoặc YAML để feed sang stage kế tiếp.
+
+```bash
+# Free-text → ea-spec.yaml hợp lệ (--explain để xem field nào suy ra từ
+# prompt, field nào lấy default; --strict để fail nếu thiếu).
+mql5-spec-from-prompt "build EA trend EURUSD H1 risk 0.5% macd or sar" \
+    --out ea-spec.yaml --explain
+
+# Pipeline 1-lệnh: scan → build → lint → compile → permission-gate →
+# dashboard. Ghi auto-build-report.json (idempotent).
+mql5-auto-build --spec ea-spec.yaml --out-dir build/MyEA
+
+# Áp transformer loop 8 AP nghiêm trọng cho file .mq5 cũ
+# (AP-1, 3, 5, 15, 17, 18, 20, 21). Re-lint sau mỗi pass.
+mql5-auto-fix MyEA.mq5
+
+# Render + (tuỳ chọn) publish ma trận chất lượng 64 ô ra HTML.
+# Đọc MQL5_DASHBOARD_PUBLISH_CMD hoặc --publish-cmd; fallback file://.
+mql5-dashboard --metrics metrics.json --out quality-matrix.html
+```
+
+Các flag cần nhớ:
+
+* `mql5-auto-build --no-compile` — bỏ qua stage Wine + MetaEditor (hữu ích
+  khi CI không có Wine hoặc chỉ muốn chạy lint/gate).
+* `mql5-auto-build --no-gate` — bỏ qua orchestrator 7 lớp.
+* `mql5-auto-build --force` — render lại scaffold ngay cả khi `out_dir`
+  đã có file.
+* `mql5-auto-build --publish-cmd <cmd>` — override hook publish
+  dashboard cho lần chạy đó.
+
+Schema của `ea-spec.yaml` (risk / signals / filters / hooks / stack
+overrides) nằm ở `scripts/vibecodekit_mql5/spec_schema.py`. Bảng
+recogniser của `mql5-spec-from-prompt` có ở
+[`devin-chat-driven-build.md`](devin-chat-driven-build.md#what-the-parser-understands).
+
+### 3.4. Verify (11 lệnh)
 
 ```bash
 # 1. Compile qua MetaEditor (Wine trên Linux)
@@ -188,6 +229,13 @@ python -m vibecodekit_mql5.method_hiding_check MyEA.mq5 --build 5260
 #    Chạy MetaEditor backtest tay trước, lưu XML, rồi parse:
 python -m vibecodekit_mql5.backtest MyEA.ex5 inputs.set \
     --period H1 --symbol EURUSD --report tester.xml > metrics.json
+
+# 4b. Chạy Strategy Tester end-to-end (drive terminal64.exe qua Wine
+#     + parse XML). Cần $MQL5_TERMINAL_PATH (export bởi
+#     scripts/setup-wine-metaeditor.sh).
+python -m vibecodekit_mql5.tester_run MyEA.ex5 \
+    --symbol EURUSD --period H1 --from 2024-01-01 --to 2024-06-01 \
+    --out tester.xml > metrics.json
 
 # 5. Walk-forward IS/OOS (cần 2 XML report đã chạy IS và OOS riêng)
 python -m vibecodekit_mql5.walkforward is.xml oos.xml > walkforward.json

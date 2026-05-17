@@ -7,11 +7,12 @@ audience: end_user, dev_team
 
 # `vibecodekit-mql5-ea` v1.0.1 Usage Guide
 
-End-to-end walkthrough of all 46 commands, from idea to live shipping.
+End-to-end walkthrough of all 50 commands, from idea to live shipping.
 Suitable for both new users and dev teams.
 
 > 📚 Vietnamese version: [USAGE-vi.md](USAGE-vi.md)
 > 🛠️ Per-IDE / CLI integration: [ENV-SETUP-vi.md](ENV-SETUP-vi.md)
+> 💬 Chat-driven build (prompt → spec → pipeline): [devin-chat-driven-build.md](devin-chat-driven-build.md)
 
 ## Contents
 
@@ -125,9 +126,10 @@ python -m vibecodekit_mql5.blueprint
 python -m vibecodekit_mql5.tip
 ```
 
-### 3.3. Build (8)
+### 3.3. Build (12)
 
 ```bash
+# Scaffolds + patchers
 python -m vibecodekit_mql5.build stdlib --name MyEA --symbol EURUSD --tf H1
 python -m vibecodekit_mql5.wizard --name MyWizardEA --symbol EURUSD --tf H1
 python -m vibecodekit_mql5.async_build --name MyHftEA --symbol EURUSD --tf M1
@@ -146,7 +148,50 @@ Available archetypes for `build`: `stdlib`, `trend`, `mean-reversion`,
 
 LLM patterns: `cloud-api` | `self-hosted-ollama` | `embedded-onnx-llm`.
 
-### 3.4. Verify (10)
+#### 3.3a. One-shot auto-build pipeline
+
+The four CLIs below close the gap between "I want an EA that does X"
+and a green-CI pull request. Each command is deterministic, regex-only
+(no LLM call), and produces a structured JSON or YAML artifact you can
+feed into the next stage.
+
+```bash
+# Free-text → schema-valid ea-spec.yaml (use --explain to see what
+# was inferred vs defaulted; --strict to fail if any required field
+# isn't recognisable in the prompt).
+mql5-spec-from-prompt "build EA trend EURUSD H1 risk 0.5% macd or sar" \
+    --out ea-spec.yaml --explain
+
+# Single-shot pipeline: scan → build → lint → compile → permission-gate
+# → dashboard. Writes auto-build-report.json (idempotent).
+mql5-auto-build --spec ea-spec.yaml --out-dir build/MyEA
+
+# Apply the 8-AP transformer loop to an existing .mq5 (AP-1, 3, 5, 15,
+# 17, 18, 20, 21). Re-runs the lint after each pass.
+mql5-auto-fix MyEA.mq5
+
+# Render + (optionally) publish the 64-cell RRI quality matrix HTML.
+# Reads MQL5_DASHBOARD_PUBLISH_CMD or --publish-cmd; falls back to
+# file:// if no hook is configured.
+mql5-dashboard --metrics metrics.json --out quality-matrix.html
+```
+
+Flags worth knowing:
+
+* `mql5-auto-build --no-compile` skips the Wine + MetaEditor stage (useful
+  on a Windows-less CI runner or when the focus is lint/gate alone).
+* `mql5-auto-build --no-gate` skips the 7-layer permission orchestrator.
+* `mql5-auto-build --force` re-renders the scaffold even when the
+  `out_dir` is non-empty.
+* `mql5-auto-build --publish-cmd <cmd>` overrides the dashboard
+  publish hook for that one run.
+
+Schema reference for `ea-spec.yaml` (risk / signals / filters / hooks /
+stack overrides) lives at `scripts/vibecodekit_mql5/spec_schema.py`;
+recognisers for `mql5-spec-from-prompt` are tabulated in
+[`devin-chat-driven-build.md`](devin-chat-driven-build.md#what-the-parser-understands).
+
+### 3.4. Verify (11)
 
 ```bash
 # Code-quality (run anytime; no XML needed)
@@ -157,6 +202,12 @@ python -m vibecodekit_mql5.method_hiding_check MyEA.mq5 --build 5260
 # Parse Strategy Tester XML report (run backtest manually first, then parse)
 python -m vibecodekit_mql5.backtest MyEA.ex5 inputs.set \
     --period H1 --symbol EURUSD --report tester.xml > metrics.json
+
+# End-to-end Strategy Tester run (drives terminal64.exe via Wine + parses XML)
+# Requires $MQL5_TERMINAL_PATH (exported by scripts/setup-wine-metaeditor.sh).
+python -m vibecodekit_mql5.tester_run MyEA.ex5 \
+    --symbol EURUSD --period H1 --from 2024-01-01 --to 2024-06-01 \
+    --out tester.xml > metrics.json
 
 # Walk-forward / overfit / monte-carlo take POSITIONAL XML/CSV inputs
 python -m vibecodekit_mql5.walkforward   is.xml oos.xml      > walkforward.json
