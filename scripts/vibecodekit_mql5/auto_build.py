@@ -41,6 +41,7 @@ from typing import Any
 
 from . import build as build_mod
 from . import compile as compile_mod
+from . import dashboard as dashboard_mod
 from . import lint as lint_mod
 from . import spec_schema
 
@@ -67,6 +68,7 @@ class PipelineReport:
     out_dir: str
     ok: bool = True
     stages: list[StageResult] = field(default_factory=list)
+    dashboard: dict[str, Any] | None = None
 
     def to_dict(self) -> dict[str, Any]:
         return {
@@ -74,6 +76,7 @@ class PipelineReport:
             "out_dir": self.out_dir,
             "ok": self.ok,
             "stages": [s.to_dict() for s in self.stages],
+            "dashboard": self.dashboard,
         }
 
 
@@ -202,8 +205,10 @@ def run_pipeline(
     out_dir: Path,
     skip_compile: bool = False,
     skip_gate: bool = False,
+    skip_dashboard: bool = False,
     force: bool = False,
     ea_spec: spec_schema.EaSpec | None = None,
+    publish_cmd: str | None = None,
 ) -> PipelineReport:
     report = PipelineReport(spec=spec, out_dir=str(out_dir))
 
@@ -211,6 +216,8 @@ def run_pipeline(
     report.stages.append(build_stage)
     if not build_stage.ok:
         report.ok = False
+        _maybe_attach_dashboard(report, out_dir, skip=skip_dashboard,
+                                publish_cmd=publish_cmd)
         return report
 
     mq5_path = out_dir / f"{spec['name']}.mq5"
@@ -221,6 +228,8 @@ def run_pipeline(
         if not candidates:
             report.stages.append(StageResult("lint", ok=False, detail={"error": "no .mq5 produced"}))
             report.ok = False
+            _maybe_attach_dashboard(report, out_dir, skip=skip_dashboard,
+                                    publish_cmd=publish_cmd)
             return report
         mq5_path = candidates[0]
 
@@ -228,6 +237,8 @@ def run_pipeline(
     report.stages.append(lint_stage)
     if not lint_stage.ok:
         report.ok = False
+        _maybe_attach_dashboard(report, out_dir, skip=skip_dashboard,
+                                publish_cmd=publish_cmd)
         return report
 
     if skip_compile:
@@ -237,16 +248,50 @@ def run_pipeline(
         report.stages.append(compile_stage)
         if not compile_stage.ok:
             report.ok = False
+            _maybe_attach_dashboard(report, out_dir, skip=skip_dashboard,
+                                    publish_cmd=publish_cmd)
             return report
 
     if skip_gate:
         report.stages.append(StageResult("gate", ok=True, skipped=True))
-        return report
-    gate_stage = _stage_gate(mq5_path, spec.get("mode", "personal"))
-    report.stages.append(gate_stage)
-    if not gate_stage.ok:
-        report.ok = False
+    else:
+        gate_stage = _stage_gate(mq5_path, spec.get("mode", "personal"))
+        report.stages.append(gate_stage)
+        if not gate_stage.ok:
+            report.ok = False
+
+    _maybe_attach_dashboard(report, out_dir, skip=skip_dashboard,
+                            publish_cmd=publish_cmd)
     return report
+
+
+def _maybe_attach_dashboard(
+    report: PipelineReport,
+    out_dir: Path,
+    *,
+    skip: bool,
+    publish_cmd: str | None,
+) -> None:
+    """Render + publish the quality-matrix dashboard and stash it on report.
+
+    Never raises; on failure the dashboard block records the error and the
+    overall pipeline outcome is unchanged. The dashboard step is
+    informational — a broken publish hook must not turn a green build red.
+    """
+    if skip:
+        report.dashboard = {"skipped": True}
+        return
+    try:
+        digest = dashboard_mod.PipelineDigest(
+            name=str(report.spec.get("name", "ea")),
+            ok=report.ok,
+            stages=[s.to_dict() for s in report.stages],
+        )
+        html_path = dashboard_mod.write_dashboard(digest, out_dir)
+        location = dashboard_mod.publish(html_path, publish_cmd=publish_cmd)
+        report.dashboard = location.to_dict()
+    except OSError as exc:  # filesystem permission / disk-full / etc.
+        report.dashboard = {"error": f"dashboard render failed: {exc}"}
 
 
 def _write_report(report: PipelineReport, out_dir: Path) -> Path:
@@ -265,6 +310,10 @@ def main(argv: list[str] | None = None) -> int:
                     help="skip MetaEditor compile stage (useful without Wine)")
     ap.add_argument("--no-gate", action="store_true",
                     help="skip permission.orchestrator stage")
+    ap.add_argument("--no-dashboard", action="store_true",
+                    help="skip the quality-matrix dashboard step")
+    ap.add_argument("--publish-cmd", default=None,
+                    help="override $MQL5_DASHBOARD_PUBLISH_CMD for this run")
     ap.add_argument("--force", action="store_true",
                     help="overwrite existing output directory")
     args = ap.parse_args(argv)
@@ -282,8 +331,10 @@ def main(argv: list[str] | None = None) -> int:
         out_dir,
         skip_compile=args.no_compile,
         skip_gate=args.no_gate,
+        skip_dashboard=args.no_dashboard,
         force=args.force,
         ea_spec=ea_spec,
+        publish_cmd=args.publish_cmd,
     )
     report_path = _write_report(report, out_dir)
     print(json.dumps(report.to_dict(), indent=2))

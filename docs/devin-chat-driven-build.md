@@ -16,10 +16,13 @@ user chat ──► Devin playbook ──► mql5-spec-from-prompt ──► ea-
                                                   ├─ build
                                                   ├─ lint
                                                   ├─ compile (Wine + MetaEditor)
-                                                  └─ permission-gate
+                                                  ├─ permission-gate
+                                                  └─ dashboard (publish quality matrix)
                                                               │
                                                               ▼
                                                   git commit + push + PR
+                                                              +
+                                                  dashboard public URL in PR body
 ```
 
 ## Local invocation
@@ -33,8 +36,9 @@ mql5-spec-from-prompt \
 # 2) Run the pipeline against that spec
 mql5-auto-build --spec /tmp/ea-spec.yaml --out-dir /tmp/MyEA
 
-# 3) Inspect the report
-jq '.steps[] | {name, ok}' /tmp/MyEA/auto-build-report.json
+# 3) Inspect the report (stages + dashboard URL)
+jq '{ok, stages: [.stages[] | {name, ok}], dashboard}' \
+    /tmp/MyEA/auto-build-report.json
 ```
 
 The first command writes a schema-valid `ea-spec.yaml` to stdout (or to
@@ -84,11 +88,47 @@ The playbook should:
 
 1. Run `mql5-spec-from-prompt "$ARGS" --out ea-spec.yaml --strict`.
 2. Run `mql5-auto-build --spec ea-spec.yaml --out-dir build/$EA_NAME --force`.
-3. Read `build/$EA_NAME/auto-build-report.json`; surface `.ok` and any
-   failing stage's `detail` back to the user.
+3. Read `build/$EA_NAME/auto-build-report.json`; surface `.ok`, any failing
+   stage's `detail`, and the `.dashboard.public_url` back to the user.
 4. If `.ok` is true, open a draft PR with the scaffold under
-   `build/<EA_NAME>/` and attach the report.
+   `build/<EA_NAME>/` and include the dashboard URL in the PR body.
 
 `mql5-auto-build` already emits an idempotent report under `out_dir`, so
 the playbook can re-run the same prompt and the pipeline stays
 deterministic.
+
+## Dashboard URL hook
+
+The last stage of `mql5-auto-build` renders the 64-cell RRI quality
+matrix to `<out_dir>/quality-matrix.html`. The pipeline always writes
+that file; if a publish command is configured the report also includes
+a public URL.
+
+The publish command is resolved in this order:
+
+1. `--publish-cmd <cmd>` flag on `mql5-auto-build` (or `mql5-dashboard`).
+2. `$MQL5_DASHBOARD_PUBLISH_CMD` environment variable.
+3. Nothing → the report exposes a `file://` URL only.
+
+The command is invoked as `<cmd> <html_path>`; whatever it prints on the
+**last non-blank stdout line** becomes `dashboard.public_url`. Examples:
+
+```bash
+# Devin org blueprint (initialize block):
+echo 'MQL5_DASHBOARD_PUBLISH_CMD=vercel deploy --prod' >> $ENVRC
+
+# Or a shell wrapper around `aws s3 cp`:
+cat > /usr/local/bin/mql5-publish-s3 <<'EOF'
+#!/bin/bash
+KEY="dashboards/$(date +%s)-$(basename $1)"
+aws s3 cp "$1" "s3://my-bucket/$KEY" --content-type text/html
+echo "https://my-bucket.s3.amazonaws.com/$KEY"
+EOF
+chmod +x /usr/local/bin/mql5-publish-s3
+export MQL5_DASHBOARD_PUBLISH_CMD=mql5-publish-s3
+```
+
+If the publish command exits non-zero or is missing, the dashboard
+stage degrades gracefully: the local HTML is still written, the report
+records `.dashboard.error`, and the overall pipeline status is
+unchanged. A broken publish hook never turns a green build red.
