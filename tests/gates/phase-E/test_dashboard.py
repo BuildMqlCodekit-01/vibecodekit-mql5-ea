@@ -13,6 +13,8 @@ Covers three layers:
 from __future__ import annotations
 
 import json
+import shlex
+import sys
 from pathlib import Path
 
 import pytest
@@ -20,6 +22,29 @@ import pytest
 from vibecodekit_mql5 import auto_build
 from vibecodekit_mql5 import compile as compile_mod
 from vibecodekit_mql5 import dashboard
+
+
+def _python_publish_stub(tmp_path: Path, name: str, body: str) -> str:
+    """Write a cross-platform publish stub and return the command string.
+
+    ``dashboard.publish`` invokes the command via ``shlex.split(cmd)`` and
+    ``subprocess.run``. On POSIX a ``#!/bin/bash`` shebang + ``chmod +x``
+    works; on Windows there is no shebang honouring, so we drive a Python
+    script through ``sys.executable`` instead — ``body`` is appended to a
+    common preamble that pops the HTML-path positional and exits with the
+    requested code.
+
+    ``body`` should be a Python snippet that prints lines / writes to
+    stderr / sets ``rc`` (an int defaulting to 0).
+    """
+    script = tmp_path / f"{name}.py"
+    preamble = (
+        "import sys\n"
+        "_html_path = sys.argv[1] if len(sys.argv) > 1 else ''\n"
+        "rc = 0\n"
+    )
+    script.write_text(preamble + body + "\nsys.exit(rc)\n", encoding="utf-8")
+    return shlex.join([sys.executable, str(script)])
 
 
 # ─────────────────────────────────────────────────────────────────────────────
@@ -43,33 +68,31 @@ def test_publish_reads_env_when_no_explicit_command(tmp_path: Path) -> None:
     html = tmp_path / "quality-matrix.html"
     html.write_text("<html></html>", encoding="utf-8")
     # Stub command that just echoes a fixed URL.
-    stub = tmp_path / "publish.sh"
-    stub.write_text("#!/bin/bash\necho https://example.test/preview\n", encoding="utf-8")
-    stub.chmod(0o755)
+    cmd = _python_publish_stub(
+        tmp_path, "publish",
+        "print('https://example.test/preview')",
+    )
 
-    location = dashboard.publish(html, env={dashboard.ENV_PUBLISH_CMD: str(stub)})
+    location = dashboard.publish(html, env={dashboard.ENV_PUBLISH_CMD: cmd})
 
     assert location.error is None
     assert location.public_url == "https://example.test/preview"
-    assert location.command == str(stub)
+    assert location.command == cmd
 
 
 def test_publish_uses_last_nonblank_stdout_line(tmp_path: Path) -> None:
     """Many real publish backends print logs before the final URL."""
     html = tmp_path / "x.html"
     html.write_text("<html></html>", encoding="utf-8")
-    stub = tmp_path / "noisy-publish.sh"
-    stub.write_text(
-        "#!/bin/bash\n"
-        "echo 'uploading...'\n"
-        "echo 'verifying...'\n"
-        "echo ''\n"
-        "echo https://cdn.test/abc\n",
-        encoding="utf-8",
+    cmd = _python_publish_stub(
+        tmp_path, "noisy-publish",
+        "print('uploading...')\n"
+        "print('verifying...')\n"
+        "print('')\n"
+        "print('https://cdn.test/abc')",
     )
-    stub.chmod(0o755)
 
-    location = dashboard.publish(html, publish_cmd=str(stub))
+    location = dashboard.publish(html, publish_cmd=cmd)
 
     assert location.public_url == "https://cdn.test/abc"
     assert location.error is None
@@ -78,13 +101,12 @@ def test_publish_uses_last_nonblank_stdout_line(tmp_path: Path) -> None:
 def test_publish_command_failure_records_stderr(tmp_path: Path) -> None:
     html = tmp_path / "x.html"
     html.write_text("<html></html>", encoding="utf-8")
-    stub = tmp_path / "broken.sh"
-    stub.write_text(
-        "#!/bin/bash\necho 'kaboom' >&2\nexit 9\n", encoding="utf-8"
+    cmd = _python_publish_stub(
+        tmp_path, "broken",
+        "print('kaboom', file=sys.stderr)\nrc = 9",
     )
-    stub.chmod(0o755)
 
-    location = dashboard.publish(html, publish_cmd=str(stub))
+    location = dashboard.publish(html, publish_cmd=cmd)
 
     assert location.error is not None
     assert "exited 9" in location.error
@@ -174,18 +196,17 @@ def test_cli_renders_and_skips_publish(
 def test_cli_invokes_publish_command(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    stub = tmp_path / "publish.sh"
-    stub.write_text(
-        "#!/bin/bash\necho https://devin.example/build/42\n", encoding="utf-8"
+    cmd = _python_publish_stub(
+        tmp_path, "publish",
+        "print('https://devin.example/build/42')",
     )
-    stub.chmod(0o755)
 
     out = tmp_path / "dash"
     rc = dashboard.main([
         "--out-dir", str(out),
         "--name", "CliEA",
         "--stage", "build=ok",
-        "--publish-cmd", str(stub),
+        "--publish-cmd", cmd,
     ])
     assert rc == 0
     parsed = json.loads(capsys.readouterr().out)
@@ -196,14 +217,12 @@ def test_cli_invokes_publish_command(
 def test_cli_publish_failure_exits_nonzero(
     tmp_path: Path, capsys: pytest.CaptureFixture[str]
 ) -> None:
-    stub = tmp_path / "broken.sh"
-    stub.write_text("#!/bin/bash\nexit 3\n", encoding="utf-8")
-    stub.chmod(0o755)
+    cmd = _python_publish_stub(tmp_path, "broken", "rc = 3")
 
     rc = dashboard.main([
         "--out-dir", str(tmp_path / "dash"),
         "--stage", "build=ok",
-        "--publish-cmd", str(stub),
+        "--publish-cmd", cmd,
     ])
     assert rc == 1
     parsed = json.loads(capsys.readouterr().out)
@@ -263,16 +282,15 @@ def test_run_pipeline_dashboard_emits_public_url_via_command(
 ) -> None:
     _patch_compile_success(monkeypatch)
     _patch_orchestrator_pass(monkeypatch)
-    stub = tmp_path / "publish.sh"
-    stub.write_text(
-        "#!/bin/bash\necho https://devin.example/preview/abc\n", encoding="utf-8"
+    cmd = _python_publish_stub(
+        tmp_path, "publish",
+        "print('https://devin.example/preview/abc')",
     )
-    stub.chmod(0o755)
 
     report = auto_build.run_pipeline(
         dict(MINIMAL_SPEC),
         tmp_path / "build",
-        publish_cmd=str(stub),
+        publish_cmd=cmd,
     )
     assert report.dashboard["public_url"] == "https://devin.example/preview/abc"
     assert report.dashboard["error"] is None
@@ -337,17 +355,13 @@ def test_main_cli_publish_cmd_flag_overrides_env(
 ) -> None:
     _patch_compile_success(monkeypatch)
     _patch_orchestrator_pass(monkeypatch)
-    flag_stub = tmp_path / "flag.sh"
-    flag_stub.write_text(
-        "#!/bin/bash\necho https://flag-wins.test\n", encoding="utf-8"
+    flag_cmd = _python_publish_stub(
+        tmp_path, "flag", "print('https://flag-wins.test')",
     )
-    flag_stub.chmod(0o755)
-    env_stub = tmp_path / "env.sh"
-    env_stub.write_text(
-        "#!/bin/bash\necho https://env-loses.test\n", encoding="utf-8"
+    env_cmd = _python_publish_stub(
+        tmp_path, "env", "print('https://env-loses.test')",
     )
-    env_stub.chmod(0o755)
-    monkeypatch.setenv(dashboard.ENV_PUBLISH_CMD, str(env_stub))
+    monkeypatch.setenv(dashboard.ENV_PUBLISH_CMD, env_cmd)
 
     import yaml
     spec_path = tmp_path / "spec.yaml"
@@ -356,7 +370,7 @@ def test_main_cli_publish_cmd_flag_overrides_env(
     rc = auto_build.main([
         "--spec", str(spec_path),
         "--out-dir", str(tmp_path / "build"),
-        "--publish-cmd", str(flag_stub),
+        "--publish-cmd", flag_cmd,
     ])
     assert rc == 0
     data = json.loads((tmp_path / "build" / "auto-build-report.json").read_text())
