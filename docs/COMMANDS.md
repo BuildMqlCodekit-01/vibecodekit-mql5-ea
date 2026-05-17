@@ -21,8 +21,11 @@ No master `/mql5` router — every command stands alone.
 - `/mql5-blueprint` — open Step 4 BLUEPRINT template
 - `/mql5-tip`       — open Step 5 TIP template
 
-## Build (8)
+## Build (11)
 - `/mql5-build`             — render a scaffold
+- `/mql5-auto-build`        — single-shot spec → scan → build → lint → compile → gate
+- `/mql5-auto-fix`          — close 8 critical anti-patterns automatically
+- `/mql5-spec-from-prompt`  — free-text description → `ea-spec.yaml` (chat-driven build)
 - `/mql5-wizard`            — render the wizard-composable scaffold
 - `/mql5-pip-normalize`     — patch a .mq5 to use `CPipNormalizer`
 - `/mql5-async-build`       — render the hft-async scaffold
